@@ -95,3 +95,13 @@ if not df.empty:
     st.caption(f"共 {len(display_df)} 筆資料")
 else:
     st.info("目前資料庫是空的，請從側邊欄新增資料。")
+    
+     # 將資料轉為 CSV 字串
+     csv = df.to_csv(index=False).encode('utf-8')
+
+     st.download_button(
+     label="📥 下載完整總表 (CSV)",
+     data=csv,
+     file_name='guest_list_total.csv',
+     mime='text/csv',
+)
