@@ -17,7 +17,6 @@ else:
 # 自動算桌次邏輯：票號每 10 人一桌
 def calculate_table(ticket_number):
     try:
-        # 確保票號為整數後進行計算
         return (int(ticket_number) - 1) // 10 + 1
     except:
         return 0
@@ -40,19 +39,72 @@ def draw_seating_chart(highlighted_tables):
             if c_idx >= 10: break 
             
             with cols[c_idx]:
-                # 處理空位
                 if pd.isna(val) or str(val).strip() == "":
                     st.write("")
-                # 處理標籤：舞台
                 elif str(val).strip() == "舞台":
                     st.markdown("<div style='background-color:#d32f2f; color:white; text-align:center; padding:5px; border-radius:5px; font-weight:bold; font-size:12px;'>舞台</div>", unsafe_allow_html=True)
-                # 處理標籤：電視
                 elif str(val).strip() == "電視":
                     st.markdown("<div style='background-color:#333; color:white; text-align:center; padding:5px; border-radius:5px; font-size:12px;'>📺</div>", unsafe_allow_html=True)
-                # 處理桌號按鈕
                 else:
                     try:
+                        # 嘗試轉為整數桌號
                         table_num = int(float(val))
                         is_active = table_num in highlighted_tables
-                        # 使用唯一 key 避免按鈕衝突
+                        # 確保按鈕括號完整閉合
                         st.button(
+                            f"{table_num}", 
+                            key=f"btn_{r_idx}_{c_idx}_{table_num}", 
+                            type="primary" if is_active else "secondary", 
+                            use_container_width=True
+                        )
+                    except (ValueError, TypeError):
+                        # 如果是其他備註文字
+                        st.caption(str(val))
+
+# --- 3. 介面主要內容 ---
+st.title("🎟️ 宴會桌次實景管理系統")
+tab1, tab2, tab3 = st.tabs(["🔍 實景地圖搜尋", "📝 新增賓客登記", "📊 所有數據管理"])
+
+with tab1:
+    search_q = st.text_input("🔍 搜尋姓名、電話、票號或售出者：", key="main_search")
+    highlighted_list = []
+    if search_q:
+        mask = df_guest.astype(str).apply(lambda x: x.str.contains(search_q, case=False)).any(axis=1)
+        # 獲取自動生成的桌號
+        highlighted_list = df_guest[mask]['桌號'].tolist()
+        if highlighted_list:
+            st.success(f"找到相關賓客，位於第 {list(set(highlighted_list))} 桌")
+    
+    draw_seating_chart(highlighted_list)
+
+with tab2:
+    with st.form("entry_form", clear_on_submit=True):
+        st.subheader("📝 新增賓客登記")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            name_v = st.text_input("姓名")
+            ticket_v = st.number_input("票號 (1-1700)", min_value=1, max_value=1700, step=1)
+        with col_b:
+            phone_v = st.text_input("聯絡電話")
+            seller_v = st.text_input("售出者")
+        
+        if st.form_submit_button("確認提交"):
+            if name_v:
+                # 自動計算並儲存桌號
+                t_num = calculate_table(ticket_v)
+                new_row = pd.DataFrame({
+                    "姓名": [name_v], 
+                    "聯絡電話": [phone_v], 
+                    "票號": [ticket_v], 
+                    "售出者": [seller_v],
+                    "桌號": [t_num] 
+                })
+                df_guest = pd.concat([df_guest, new_row], ignore_index=True)
+                df_guest.to_csv(GUEST_FILE, index=False)
+                st.success(f"✅ 登記成功！{name_v} 自動分配至第 {t_num} 桌")
+            else:
+                st.warning("請輸入姓名")
+
+with tab3:
+    st.subheader("📊 完整名單一覽表")
+    st.dataframe(df_guest.sort_values(by="桌號"), use_container_width=True)
