@@ -21,7 +21,7 @@ def calculate_table(ticket_number):
     except:
         return 0
 
-# --- 2. 繪製地圖函數 (支援橫跨全排樣式) ---
+# --- 2. 繪製地圖函數 ---
 def draw_seating_chart(highlighted_tables):
     if not os.path.exists(LAYOUT_FILE):
         st.error(f"❌ 找不到佈局檔案: {LAYOUT_FILE}")
@@ -31,38 +31,22 @@ def draw_seating_chart(highlighted_tables):
     st.markdown("### 🏟️ 場地實景佈局圖")
     
     for r_idx, row in df_map.iterrows():
-        # 將整列內容轉為字串進行檢查
         row_content = "".join([str(v) for v in row if not pd.isna(v)])
         
-        # 🚩 處理「舞台」橫跨全排
         if "舞台" in row_content:
-            st.markdown("""
-                <div style='background-color:#FF4B4B; color:white; text-align:center; 
-                padding:15px; border-radius:10px; font-weight:bold; font-size:24px; 
-                margin: 10px 0; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'>
-                🎭 舞 臺 STAGE 
-                </div>
-                """, unsafe_allow_html=True)
+            st.markdown("<div style='background-color:#FF4B4B; color:white; text-align:center; padding:15px; border-radius:10px; font-weight:bold; font-size:24px; margin: 10px 0;'>🎭 舞 臺 STAGE</div>", unsafe_allow_html=True)
             continue
             
-        # 🚪 處理「入口」橫跨全排
         elif "入口" in row_content:
-            st.markdown("""
-                <div style='background-color:#2E7D32; color:white; text-align:center; 
-                padding:15px; border-radius:10px; font-weight:bold; font-size:24px; 
-                margin: 10px 0; border: 3px dashed #FFFFFF;'>
-                🚪 主 入 口 ENTRANCE
-                </div>
-                """, unsafe_allow_html=True)
+            st.markdown("<div style='background-color:#2E7D32; color:white; text-align:center; padding:15px; border-radius:10px; font-weight:bold; font-size:24px; margin: 10px 0;'>🚪 主 入 口 ENTRANCE</div>", unsafe_allow_html=True)
             continue
 
-        # 一般桌位列處理
         cols = st.columns(10) 
         for c_idx, val in enumerate(row):
             if c_idx >= 10: break 
             with cols[c_idx]:
                 cell_text = str(val).strip() if not pd.isna(val) else ""
-                if cell_text == "":
+                if cell_text == "" or cell_text == "nan":
                     st.write("")
                 elif "電視" in cell_text:
                     st.markdown("<div style='background-color:#333; color:white; text-align:center; padding:5px; border-radius:5px;'>📺</div>", unsafe_allow_html=True)
@@ -70,15 +54,9 @@ def draw_seating_chart(highlighted_tables):
                     try:
                         table_num = int(float(val))
                         is_active = table_num in highlighted_tables
-                        st.button(
-                            f"{table_num}", 
-                            key=f"btn_{r_idx}_{c_idx}_{table_num}", 
-                            type="primary" if is_active else "secondary", 
-                            use_container_width=True
-                        )
-                    except (ValueError, TypeError):
-                        if cell_text != "nan":
-                            st.caption(cell_text)
+                        st.button(f"{table_num}", key=f"btn_{r_idx}_{c_idx}_{table_num}", type="primary" if is_active else "secondary", use_container_width=True)
+                    except:
+                        st.caption(cell_text)
 
 # --- 3. 介面主要內容 ---
 st.title("🎟️ 宴會桌次實景管理系統")
@@ -92,7 +70,6 @@ with tab1:
         highlighted_list = df_guest[mask]['桌號'].tolist()
         if highlighted_list:
             st.success(f"找到相關賓客，位於第 {list(set(highlighted_list))} 桌")
-    
     draw_seating_chart(highlighted_list)
 
 with tab2:
@@ -101,23 +78,4 @@ with tab2:
         col_a, col_b = st.columns(2)
         with col_a:
             name_v = st.text_input("姓名")
-            ticket_v = st.number_input("票號 (1-1700)", min_value=1, max_value=1700, step=1)
-        with col_b:
-            phone_v = st.text_input("聯絡電話")
-            seller_v = st.text_input("售出者")
-        
-        if st.form_submit_button("確認提交"):
-            if name_v:
-                t_num = calculate_table(ticket_v)
-                new_row = pd.DataFrame({
-                    "姓名": [name_v], "聯絡電話": [phone_v], "票號": [ticket_v], "售出者": [seller_v], "桌號": [t_num] 
-                })
-                df_guest = pd.concat([df_guest, new_row], ignore_index=True)
-                df_guest.to_csv(GUEST_FILE, index=False)
-                st.success(f"✅ 登記成功！{name_v} 自動分配至第 {t_num} 桌")
-            else:
-                st.warning("請輸入姓名")
-
-with tab3:
-    st.subheader("📊 完整名單一覽表")
-    st.dataframe(df_guest.sort_values(by="桌號"), use_container_width=True)
+            ticket_v = st.number_input("票號 (1-1700)", min_value=1, max_value=1700, step=
