@@ -14,7 +14,7 @@ else:
 def calculate_table(ticket_number):
     return (int(ticket_number) - 1) // 10 + 1
 
-# --- 2. 繪製地圖函數 (地毯式檢查：確保括號與引號完全閉合) ---
+# --- 2. 繪製地圖函數 (確保所有字串與縮排正確) ---
 def draw_seating_chart(highlighted_tables):
     def draw_btn(num):
         is_active = num in highlighted_tables
@@ -24,11 +24,13 @@ def draw_seating_chart(highlighted_tables):
     st.markdown("<h2 style='text-align: center; color: white; background-color: #d32f2f; padding: 10px; border-radius: 10px;'>🚩 舞台 STAGE 🚩</h2>", unsafe_allow_html=True)
     
     st.write("⬅️ 上菜方向 | 舞台第一排 (核心排序)")
-    row1 = [10, 9, 8, 7, 3, 1, 2, 4, 5, 6]
+    row1_order = [10, 9, 8, 7, 3, 1, 2, 4, 5, 6]
     cols1 = st.columns(10)
-    for idx, num in enumerate(row1):
+    for idx, num in enumerate(row1_order):
         with cols1[idx]:
             draw_btn(num)
 
     st.write("---")
-    st.caption("30尺龍帳區 (11 - 10
+    st.caption("30尺龍帳區 (11 - 100 號)")
+    for i in range(11, 101, 10):
+        # 走道標示：每兩排(20桌)
