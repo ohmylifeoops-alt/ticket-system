@@ -53,4 +53,24 @@ def draw_seating_chart(highlighted_tables):
         for j in range(10):
             num = i + j
             if num <= 170:
-                with cols[j
+                with cols[j]: # 修正處：補上閉合中括號 ]
+                    draw_btn(num)
+    
+    st.markdown("<h3 style='text-align: center;'>🚪 入口方向</h3>", unsafe_allow_html=True)
+
+# --- 3. 介面主要內容 ---
+st.title("🎟️ 票務登記與桌次視覺化系統")
+tab1, tab2, tab3 = st.tabs(["🔍 桌次地圖搜尋", "📝 新增賓客登記", "📊 所有數據管理"])
+
+with tab1:
+    search_term = st.text_input("🔍 搜尋姓名、電話、票號或售出者：", key="search_box")
+    highlighted = []
+    if search_term:
+        mask = df.astype(str).apply(lambda x: x.str.contains(search_term, case=False)).any(axis=1)
+        highlighted = df[mask]['桌號'].tolist()
+        if highlighted:
+            st.success(f"找到賓客，位於第 {list(set(highlighted))} 桌")
+    # 呼叫地圖繪製
+    draw_seating_chart(highlighted)
+
+with tab2:
