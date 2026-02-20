@@ -91,56 +91,49 @@ with tab2:
     st.caption(f"目前總人數：{len(df)} 人 | 已使用桌數：{df['桌號'].nunique()} 桌")
 import streamlit as st
 
-# --- 1. 核心排列邏輯：舞台前 3-1-2，其餘 4-170 ---
 def draw_seating_chart(highlighted_tables):
-    st.write("---")
-    st.markdown("<h2 style='text-align: center;'>舞台方向</h2>", unsafe_allow_html=True)
-    
-    # 舞台正前方三桌 (3, 1, 2)
-    st.write("### 舞台第一排")
-    c1, c2, c3 = st.columns(3)
-    
-    # 定義顯示函數：如果在搜尋結果中，就變色
-    def table_button(num):
-        label = f"第 {num} 桌"
-        # 如果這桌是被搜尋到的，使用 'primary' 顏色(藍色/紅色)
-        btn_type = "primary" if num in highlighted_tables else "secondary"
-        st.button(label, key=f"table_{num}", use_container_width=True, type=btn_type)
+    # --- 區域一：入口區 (30桌) ---
+    st.subheader("🚪 入口區域 (第 141 - 170 桌)")
+    cols_30 = st.columns(5)
+    for i, num in enumerate(range(141, 171)):
+        with cols_30[i % 5]:
+            btn_type = "primary" if num in highlighted_tables else "secondary"
+            st.button(f"{num}", key=f"t{num}", type=btn_type, use_container_width=True)
 
-    with c1: table_button(3) # 左
-    with c2: table_button(1) # 中
-    with c3: table_button(2) # 右
+    st.write("↓ 往內走 (經過看板/電視牆) ↓")
 
-    st.write("### 其他桌次 (4-170)")
+    # --- 區域二：中間區 (40桌) ---
+    st.subheader("📺 中間區域 (第 101 - 140 桌)")
+    cols_40 = st.columns(5)
+    for i, num in enumerate(range(101, 141)):
+        with cols_40[i % 5]:
+            btn_type = "primary" if num in highlighted_tables else "secondary"
+            st.button(f"{num}", key=f"t{num}", type=btn_type, use_container_width=True)
+
+    st.write("↓ 抵達核心區 ↓")
+
+    # --- 區域三：舞台核心區 (100桌) ---
+    st.markdown("<h2 style='text-align: center; color: red;'>🚩 舞台位置 🚩</h2>", unsafe_allow_html=True)
     
-    # 設定一排顯示 5 桌 (適合手機查看)
-    cols_per_row = 5
-    other_tables = list(range(4, 171))
+    # 舞台第一排：3, 1, 2 特別排法
+    st.write("### 舞台正前方 (第一排)")
+    c1, c2, c3 = st.columns([1, 1, 1])
+    def stage_btn(num):
+        t = "primary" if num in highlighted_tables else "secondary"
+        st.button(f"第 {num} 桌", key=f"t{num}", type=t, use_container_width=True)
     
-    # 用迴圈自動產生剩下的桌子
-    for i in range(0, len(other_tables), cols_per_row):
-        cols = st.columns(cols_per_row)
-        batch = other_tables[i:i + cols_per_row]
+    with c1: stage_btn(3) # 左
+    with c2: stage_btn(1) # 中
+    with c3: stage_btn(2) # 右
+
+    # 剩下的 97 桌 (依照 10x10 扣除前 3 桌後的排法)
+    # 為了美觀，我們從第 4 桌開始，每排 10 桌繪製
+    st.write("### 核心區後方 (每排 10 桌)")
+    remaining_100 = list(range(4, 101))
+    for i in range(0, len(remaining_100), 10):
+        cols = st.columns(10)
+        batch = remaining_100[i:i+10]
         for idx, num in enumerate(batch):
             with cols[idx]:
-                table_button(num)
-
-# --- 2. 整合搜尋邏輯 ---
-# 假設你的資料表格叫 df
-st.title("賓客桌次查詢")
-search_input = st.text_input("🔍 輸入票號、姓名或電話搜尋：")
-
-# 這裡模擬搜尋結果：找出符合條件的桌號
-# 如果你的資料表有 '桌號' 這一欄，就把符合的數字抓出來
-highlighted = []
-if search_input:
-    # 這是搜尋邏輯：在你的 df 裡面找關鍵字
-    # result_df = df[df.astype(str).apply(lambda x: x.str.contains(search_input)).any(axis=1)]
-    # highlighted = result_df['桌號'].tolist()
-    
-    # 暫時用模擬數據測試：如果輸入 1，1號桌就亮
-    if search_input.isdigit():
-        highlighted = [int(search_input)]
-
-# 呼叫畫圖函數
-draw_seating_chart(highlighted)
+                t = "primary" if num in highlighted_tables else "secondary"
+                st.button(f"{num}", key=f"t{num}", type=t, use_container_width=True)
