@@ -36,3 +36,21 @@ def draw_seating_chart(highlighted_tables):
     # 11-100 號：每排 10 桌
     st.write("### 舞台大區 (11 - 100 號)")
     for i in range(11, 101, 10):
+        cols = st.columns(10)
+        for j in range(10):
+            num = i + j
+            if num <= 100:
+                with cols[j]:
+                    draw_btn(num)
+
+    # 走道與空間標示
+    st.markdown("<div style='text-align: center; padding: 15px; border: 2px dashed #999; margin: 20px 0;'>📺 走道 / 電視牆 / 看板區域 📺</div>", unsafe_allow_html=True)
+
+    # B. 中間與入口區 (101-170號)
+    st.write("### 中間與入口區域 (101 - 170 號)")
+    for i in range(101, 171, 10):
+        cols = st.columns(10)
+        for j in range(10):
+            num = i + j
+            if num <= 170:
+                with cols[j
