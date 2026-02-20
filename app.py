@@ -4,7 +4,7 @@ import os
 
 # --- 1. 設定與初始化 ---
 FILE_NAME = 'guest_data.csv'
-st.set_page_config(page_title="票號桌次管理與地圖系統", page_icon="🎟️", layout="wide")
+st.set_page_config(page_title="票號桌次地圖系統", page_icon="🎟️", layout="wide")
 
 # 讀取資料庫
 if os.path.exists(FILE_NAME):
@@ -12,7 +12,7 @@ if os.path.exists(FILE_NAME):
 else:
     df = pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
 
-# 核心邏輯：計算桌次 (票號 1-10 為第 1 桌，以此類推)
+# 核心邏輯：計算桌次
 def calculate_table(ticket_number):
     return (int(ticket_number) - 1) // 10 + 1
 
@@ -25,7 +25,7 @@ def draw_seating_chart(highlighted_tables):
     # A. 舞台核心區 (1-100號)
     st.markdown("<h2 style='text-align: center; color: red; background-color: #fff0f0; padding: 10px; border-radius: 10px;'>🚩 舞台位置 🚩</h2>", unsafe_allow_html=True)
     
-    # 舞台第一排：按照您要求的 10 9 8 7 3 1 2 4 5 6 順序
+    # 舞台第一排：精確排序 10 9 8 7 3 1 2 4 5 6
     st.write("### 舞台第一排")
     row1 = [10, 9, 8, 7, 3, 1, 2, 4, 5, 6]
     cols1 = st.columns(10)
@@ -43,7 +43,7 @@ def draw_seating_chart(highlighted_tables):
                 with cols[j]:
                     draw_btn(num)
 
-    # 走道與空間標示
+    # 走道標示
     st.markdown("<div style='text-align: center; padding: 15px; border: 2px dashed #999; margin: 20px 0;'>📺 走道 / 電視牆 / 看板區域 📺</div>", unsafe_allow_html=True)
 
     # B. 中間與入口區 (101-170號)
@@ -53,7 +53,7 @@ def draw_seating_chart(highlighted_tables):
         for j in range(10):
             num = i + j
             if num <= 170:
-                with cols[j]: # 修正處：補上閉合中括號 ]
+                with cols[j]:
                     draw_btn(num)
     
     st.markdown("<h3 style='text-align: center;'>🚪 入口方向</h3>", unsafe_allow_html=True)
@@ -69,8 +69,26 @@ with tab1:
         mask = df.astype(str).apply(lambda x: x.str.contains(search_term, case=False)).any(axis=1)
         highlighted = df[mask]['桌號'].tolist()
         if highlighted:
-            st.success(f"找到賓客，位於第 {list(set(highlighted))} 桌")
-    # 呼叫地圖繪製
+            st.success(f"找到相關賓客，位於第 {list(set(highlighted))} 桌")
+    # 正確呼叫函數
     draw_seating_chart(highlighted)
 
 with tab2:
+    with st.form("my_form", clear_on_submit=True):
+        n = st.text_input("姓名")
+        t = st.number_input("票號", min_value=1, max_value=2000, step=1)
+        p = st.text_input("聯絡電話")
+        s = st.text_input("售出者")
+        if st.form_submit_button("提交登記"):
+            if n:
+                tbl = calculate_table(t)
+                new_row = pd.DataFrame({"姓名":[n],"聯絡電話":[p],"票號":[t],"售出者":[s],"桌號":[tbl]})
+                df = pd.concat([df, new_row], ignore_index=True)
+                df.to_csv(FILE_NAME, index=False)
+                st.success(f"✅ 登記成功！{n} 分配在第 {tbl} 桌")
+            else:
+                st.warning("請輸入姓名")
+
+with tab3:
+    st.subheader("完整名單清單")
+    st.dataframe(df.sort_values(by="桌號"), use_container_width=True)
