@@ -4,7 +4,7 @@ import os
 
 # --- 1. 初始化與檔案設定 ---
 GUEST_FILE = 'guest_data.csv'
-LAYOUT_FILE = '排桌.xlsx - 工作表1.csv'  # 這是您上傳的佈局檔名
+LAYOUT_FILE = '排桌.xlsx - 工作表1.csv'
 
 st.set_page_config(page_title="宴會桌次實景系統", page_icon="🎟️", layout="wide")
 
@@ -14,28 +14,38 @@ if os.path.exists(GUEST_FILE):
 else:
     df_guest = pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
 
-# 自動算桌次邏輯 (票號每 10 號一桌)
+# 自動算桌次邏輯：票號每 10 人一桌
 def calculate_table(ticket_number):
-    return (int(ticket_number) - 1) // 10 + 1
+    try:
+        return (int(ticket_number) - 1) // 10 + 1
+    except:
+        return 0
 
-# --- 2. 繪製地圖函數 (地毯式檢查：完全遵循 Excel 網格) ---
+# --- 2. 繪製地圖函數 (完全遵循您的 Excel 佈局) ---
 def draw_seating_chart(highlighted_tables):
     if not os.path.exists(LAYOUT_FILE):
-        st.error(f"找不到佈局檔案: {LAYOUT_FILE}，請確保檔案已上傳至 GitHub。")
+        st.error(f"找不到佈局檔案: {LAYOUT_FILE}，請確保此 CSV 檔已上傳至 GitHub。")
         return
 
-    # 讀取 Excel 網格 (不設 header 以獲取原始座標)
+    # 讀取 Excel 網格
     df_map = pd.read_csv(LAYOUT_FILE, header=None)
 
     st.markdown("### 🏟️ 場地實景佈局圖")
     
-    # 逐列(Row)掃描 Excel 格子
+    # 逐列掃描 Excel 格子
     for r_idx, row in df_map.iterrows():
-        cols = st.columns(10)  # 固定 10 欄以對應 Excel 寬度
+        cols = st.columns(10) 
         for c_idx, val in enumerate(row):
-            if c_idx >= 10: break # 防止超出寬度
+            if c_idx >= 10: break 
             
             with cols[c_idx]:
-                # 處理空位
                 if pd.isna(val) or str(val).strip() == "":
-                    st.write
+                    st.write("")
+                elif str(val).strip() == "舞台":
+                    st.markdown("<div style='background-color:#d32f2f; color:white; text-align:center; padding:5px; border-radius:5px; font-weight:bold; font-size:12px;'>舞台</div>", unsafe_allow_html=True)
+                elif str(val).strip() == "電視":
+                    st.markdown("<div style='background-color:#333; color:white; text-align:center; padding:5px; border-radius:5px; font-size:12px;'>📺</div>", unsafe_allow_html=True)
+                else:
+                    try:
+                        table_num = int(float(val))
+                        is_active = table_num in highlighted_tables
