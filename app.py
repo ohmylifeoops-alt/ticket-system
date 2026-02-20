@@ -12,7 +12,7 @@ if os.path.exists(FILE_NAME):
 else:
     df = pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
 
-# 自動算桌次邏輯 (票號除以 10)
+# 自動算桌次邏輯 (每 10 人一桌)
 def calculate_table(ticket_number):
     return (int(ticket_number) - 1) // 10 + 1
 
@@ -36,4 +36,17 @@ def draw_seating_chart(highlighted_tables):
     # 11-100 號：每兩排設一橫向走道模擬龍帳
     st.write("---")
     st.caption("30尺龍帳區 (11 - 100 號)")
-    for i
+    for i in range(11, 101, 10):
+        # 每兩排(20桌)增加一個走道標示
+        if i > 11 and (i - 11) % 20 == 0:
+            st.markdown("<div style='text-align: center; color: #999; margin: 15px 0; border-top: 1px dashed #ccc;'>↑ ⬅️ 走道 AISLE ⬅️ ↑</div>", unsafe_allow_html=True)
+        
+        cols = st.columns(10)
+        for j in range(10):
+            num = i + j
+            if num <= 100:
+                with cols[j]:
+                    draw_btn(num)
+
+    # === B. 電視牆分界線 ===
+    st.markdown("<div style='text-align: center; padding: 20px; background-color: #333; color: white; margin: 30px 0; border-radius: 5px;'>📺 電視牆 &
