@@ -4,7 +4,7 @@ import os
 
 # --- 1. 設定與初始化 ---
 FILE_NAME = 'guest_data.csv'
-st.set_page_config(page_title="票號桌次地圖系統", page_icon="🎟️", layout="wide")
+st.set_page_config(page_title="票號桌次管理與地圖系統", page_icon="🎟️", layout="wide")
 
 # 讀取資料庫
 if os.path.exists(FILE_NAME):
@@ -22,7 +22,7 @@ def draw_seating_chart(highlighted_tables):
         is_active = num in highlighted_tables
         st.button(f"{num}", key=f"map_btn_{num}", type="primary" if is_active else "secondary", use_container_width=True)
 
-    # A. 舞台核心區 (1-100號)
+    # --- A. 舞台核心區 (1-100號) ---
     st.markdown("<h2 style='text-align: center; color: red; background-color: #fff0f0; padding: 10px; border-radius: 10px;'>🚩 舞台位置 🚩</h2>", unsafe_allow_html=True)
     
     # 舞台第一排：精確排序 10 9 8 7 3 1 2 4 5 6
@@ -43,18 +43,28 @@ def draw_seating_chart(highlighted_tables):
                 with cols[j]:
                     draw_btn(num)
 
-    # 走道標示
-    st.markdown("<div style='text-align: center; padding: 15px; border: 2px dashed #999; margin: 20px 0;'>📺 走道 / 電視牆 / 看板區域 📺</div>", unsafe_allow_html=True)
+    # 走道與空間標示：電視牆
+    st.markdown("<div style='text-align: center; padding: 15px; border: 2px dashed #999; margin: 20px 0;'>📺 電視牆 / 看板區域 📺</div>", unsafe_allow_html=True)
 
-    # B. 中間與入口區 (101-170號)
-    st.write("### 中間與入口區域 (101 - 170 號)")
-    for i in range(101, 171, 10):
+    # --- B. 電視牆後第一階段 (101-125 號)：採 5 欄排法 ---
+    st.write("### 電視牆後 (101 - 125 號)")
+    area_25 = list(range(101, 126))
+    for i in range(0, len(area_25), 5):
+        cols = st.columns(5)
+        batch = area_25[i:i+5]
+        for idx, num in enumerate(batch):
+            with cols[idx]:
+                draw_btn(num)
+
+    # --- C. 電視牆後第二階段 (126-170 號)：採 10 欄排法 ---
+    st.write("### 入口前大區 (126 - 170 號)")
+    area_rest = list(range(126, 171))
+    for i in range(0, len(area_rest), 10):
         cols = st.columns(10)
-        for j in range(10):
-            num = i + j
-            if num <= 170:
-                with cols[j]:
-                    draw_btn(num)
+        batch = area_rest[i:i+10]
+        for idx, num in enumerate(batch):
+            with cols[idx]:
+                draw_btn(num)
     
     st.markdown("<h3 style='text-align: center;'>🚪 入口方向</h3>", unsafe_allow_html=True)
 
@@ -70,7 +80,6 @@ with tab1:
         highlighted = df[mask]['桌號'].tolist()
         if highlighted:
             st.success(f"找到相關賓客，位於第 {list(set(highlighted))} 桌")
-    # 正確呼叫函數
     draw_seating_chart(highlighted)
 
 with tab2:
