@@ -40,7 +40,7 @@ def draw_seating_chart(highlighted_tables):
                 <div style='background-color:#FF4B4B; color:white; text-align:center; 
                 padding:15px; border-radius:10px; font-weight:bold; font-size:24px; 
                 margin: 10px 0; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'>
-                🎭 舞 臺 STAGE (在此對齊全場)
+                🎭 舞 臺 STAGE 
                 </div>
                 """, unsafe_allow_html=True)
             continue
