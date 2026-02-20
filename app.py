@@ -29,14 +29,4 @@ def draw_seating_chart(highlighted_tables):
     st.write("⬅️ 上菜方向 | 舞台第一排")
     row1 = [10, 9, 8, 7, 3, 1, 2, 4, 5, 6]
     cols1 = st.columns(10)
-    for idx, num in enumerate(row1):
-        with cols1[idx]:
-            draw_btn(num)
-
-    # 11-100 號：每兩排設一橫向走道
-    st.write("---")
-    st.caption("30尺龍帳區 (11 - 100 號)")
-    for i in range(11, 101, 10):
-        # 每兩排(20桌)增加一個走道空間
-        if i > 11 and (i - 11) % 20 == 0:
-            st.markdown("<div style
+    for idx, num in enumerate
