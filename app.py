@@ -6,7 +6,7 @@ import os
 LAYOUT_FILE = '排桌.xlsx - 工作表1.csv' 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1m7Ak2e7QZdXWYdzKL77g20gHieId5bRpRZsVtyQG05g/export?format=csv"
 
-st.set_page_config(page_title="宴會桌次實景管理系統", page_icon="🎟️", layout="wide")
+st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="🎟️", layout="wide")
 
 # 讀取雲端賓客資料 (緩存 30 秒)
 @st.cache_data(ttl=30, show_spinner=False)
@@ -80,7 +80,7 @@ def draw_seating_chart(highlighted_tables):
                         if cell_text != "nan": st.caption(cell_text)
 
 # --- 3. 介面內容 ---
-st.title("🎟️ 宴會桌次實景管理系統")
+st.title("🎟️ 千人宴桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
