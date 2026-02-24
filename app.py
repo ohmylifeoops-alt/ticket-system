@@ -1,14 +1,15 @@
 import streamlit as st
 import pandas as pd
 import os
+import time
 
 # --- 1. 系統效能與雲端設定 ---
 LAYOUT_FILE = '排桌.xlsx - 工作表1.csv' 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1m7Ak2e7QZdXWYdzKL77g20gHieId5bRpRZsVtyQG05g/export?format=csv"
 
-st.set_page_config(page_title="千人宴桌次管理系統", page_icon="🎟️", layout="wide")
+st.set_page_config(page_title="宴會桌次實景管理系統", page_icon="🎟️", layout="wide")
 
-# 讀取雲端資料 (緩存 30 秒)
+# 讀取雲端賓客資料
 @st.cache_data(ttl=30, show_spinner=False)
 def load_cloud_data():
     try:
@@ -27,19 +28,18 @@ def calculate_table(ticket_number):
     except:
         return 0
 
-# --- 2. 實景地圖繪製 ---
+# --- 2. 實景地圖繪製 (加入強制刷新邏輯) ---
 def draw_seating_chart(highlighted_tables):
     if not os.path.exists(LAYOUT_FILE):
-        st.error("❌ 找不到佈局檔案，請檢查 GitHub。")
+        st.error("❌ 找不到佈局檔案，請確認 CSV 已上傳至 GitHub 根目錄。")
         return
 
-    @st.cache_data
-    def get_layout():
-        return pd.read_csv(LAYOUT_FILE, header=None)
+    # 讀取佈局檔 (加入不快取邏輯，確保修正座位後立刻生效)
+    df_map = pd.read_csv(LAYOUT_FILE, header=None)
     
-    df_map = get_layout()
     highlight_set = set(highlighted_tables)
-
+    st.markdown("### 🏟️ 場地實景佈局圖")
+    
     for r_idx, row in df_map.iterrows():
         row_content = "".join([str(v) for v in row if not pd.isna(v)])
         
@@ -68,7 +68,7 @@ def draw_seating_chart(highlighted_tables):
                         if cell_text != "nan": st.caption(cell_text)
 
 # --- 3. 介面內容 ---
-st.title("🎟️ 千人宴桌次管理系統")
+st.title("🎟️ 宴會桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
@@ -113,13 +113,13 @@ with tab2:
                     st.error(f"❌ 嚴重錯誤：票號 {conflicts} 已經被登記過了！")
                 else:
                     st.balloons()
-                    st.success(f"🎉 驗證通過！請將內容貼至 Google Sheets：")
+                    st.success("🎉 驗證通過！請將內容貼至 Google Sheets：")
                     final_rows = [f"{name}\t{phone}\t{t}\t{seller}\t{calculate_table(t)}" for t in t_range]
                     st.code("\n".join(final_rows), language="text")
 
 with tab3:
     st.subheader("📊 雲端資料預覽")
     st.dataframe(df_guest.sort_values(by="票號") if not df_guest.empty else df_guest, use_container_width=True)
-    if st.button("🔄 強制重新讀取"):
+    if st.button("🔄 強制重新讀取 (地圖與雲端)"):
         st.cache_data.clear()
         st.rerun()
