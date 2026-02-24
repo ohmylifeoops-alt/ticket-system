@@ -68,7 +68,7 @@ def draw_seating_chart(highlighted_tables):
                         if cell_text != "nan": st.caption(cell_text)
 
 # --- 3. 介面內容 ---
-st.title("🎟️ 宴會桌次實景管理系統")
+st.title("🎟️ 千人宴桌次管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
