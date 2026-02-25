@@ -12,16 +12,16 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS 修正：左右拉開、上下壓縮 ---
+# --- 🎨 核心 CSS 修正：徹底消除上下多餘間距 ---
 st.markdown("""
     <style>
-    /* 1. 搜尋區域對齊 */
+    /* 搜尋區域對齊 */
     div.stButton > button:first-child {
         height: 3em !important;
         margin-top: 28px !important;
     }
 
-    /* 2. 浮動視窗絕對排版 */
+    /* 浮動視窗絕對排版 */
     .popup-container {
         position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%);
         width: 380px; background-color: #FFD700; border-radius: 20px;
@@ -42,32 +42,43 @@ st.markdown("""
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 15px;
     }
 
-    /* 3. 地圖間距優化核心 */
-    [data-testid="stHorizontalBlock"] {
-        gap: 0.5rem !important; /* 👈 關鍵：把左右間距調回來，原本是 0px */
-    }
-    [data-testid="column"] {
-        margin-bottom: -22px !important; /* 👈 關鍵：繼續保持上下極致壓縮 */
+    /* 3. 地圖間距優化：徹底針對上下間距壓縮 */
+    /* 移除所有垂直區塊的預設 padding */
+    [data-testid="stVerticalBlock"] > div {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
     }
     
-    /* 桌子按鈕微調 */
-    .stButton > button {
-        height: 35px !important;
+    /* 讓每一橫排按鈕緊貼 */
+    [data-testid="stHorizontalBlock"] {
+        gap: 0.5rem !important; /* 保持左右間距 */
+        margin-bottom: -15px !important; /* 強制上下縮減 */
+    }
+
+    /* 針對 column 內部進行微調 */
+    [data-testid="column"] {
         padding: 0px !important;
-        font-size: 14px !important;
+    }
+    
+    /* 桌子按鈕高度壓縮 */
+    .stButton > button {
+        height: 32px !important;
+        padding: 0px !important;
+        font-size: 13px !important;
+        margin: 0px !important;
     }
     
     .label-box {
-        margin: 10px 0 !important;
-        padding: 10px !important;
-        font-size: 18px;
+        margin: 2px 0 !important; /* 舞台入口間距縮小 */
+        padding: 5px !important;
+        font-size: 16px;
     }
 
     .table-anchor { scroll-margin-top: 350px; }
     
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
-        border: 3px solid #FBC02D !important; font-weight: bold;
+        border: 2px solid #FBC02D !important; font-weight: bold;
         transform: scale(1.1);
     }
     
@@ -100,11 +111,12 @@ def draw_seating_chart(highlighted_tables):
     
     st.markdown("### 🏟️ 千人宴場地實景佈局圖")
     
+    # 使用一個特殊的容器來包裹所有桌次，減少容器間距
     for r_idx, row in df_map.iterrows():
         row_content = "".join([str(v) for v in row if not pd.isna(v)])
         if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
             color = "#FF4B4B" if "舞台" in row_content else "#2E7D32"
-            st.markdown(f"<div class='label-box' style='background-color:{color}; color:white; text-align:center; border-radius:10px; font-weight:bold;'>{row_content}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='label-box' style='background-color:{color}; color:white; text-align:center; border-radius:8px; font-weight:bold;'>{row_content}</div>", unsafe_allow_html=True)
             continue
 
         cols = st.columns(num_cols) 
@@ -116,18 +128,20 @@ def draw_seating_chart(highlighted_tables):
                         table_num = int(float(val))
                         is_active = table_num in highlight_set
                         display_name = f"VIP{table_num}" if table_num in [1,2,3] else str(table_num)
+                        # 設置錨點
                         st.markdown(f"<div id='table_{table_num}' class='table-anchor'></div>", unsafe_allow_html=True)
                         st.button(display_name, key=f"btn_{r_idx}_{c_idx}_{table_num}", type="primary" if is_active else "secondary", use_container_width=True)
                     except:
-                        st.markdown(f"<p style='font-size:10px; text-align:center; margin:0; color:#666;'>{cell_text}</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:10px; text-align:center; margin:0; line-height:1; color:#666;'>{cell_text}</p>", unsafe_allow_html=True)
 
+# 介面部分
 st.title("🎟️ 千人宴桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
     c_input, c_btn = st.columns([4, 1])
     with c_input:
-        search_q = st.text_input("請輸入票號查詢：", placeholder="請輸入票號數字，例如：1351", key="search_main")
+        search_q = st.text_input("請輸入票號查詢：", placeholder="例如：1351", key="search_main")
     with c_btn:
         search_trigger = st.button("🔍 查詢")
 
@@ -148,11 +162,8 @@ with tab1:
                     """, unsafe_allow_html=True)
             else:
                 st.session_state.focus_table = None
-                if search_q: st.error("查與此票號不符")
+                if search_q: st.error("查無票號")
         except:
             if search_q: st.error("請輸入數字")
 
     draw_seating_chart([st.session_state.focus_table] if st.session_state.focus_table else [])
-
-# Tab2 & Tab3 代碼與之前完全一致，維持登記功能...
-# (此處省略 Tab2, Tab3 重複內容以保持回應簡潔)
