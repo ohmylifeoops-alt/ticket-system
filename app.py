@@ -3,8 +3,8 @@ import pandas as pd
 import os
 import io
 
-# --- 1. 系統效能與設定 ---
-# 請確保 GitHub 上的 CSV 檔名與此處完全一致
+# --- 1. 系統設定 ---
+# 請確認 GitHub 上的 CSV 檔名與此處完全一致
 LAYOUT_FILE = '排桌.xlsx - 工作表1.csv' 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1m7Ak2e7QZdXWYdzKL77g20gHieId5bRpRZsVtyQG05g/export?format=csv"
 
@@ -14,7 +14,7 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 完美排版 CSS 修正 ---
+# --- 🎨 完美排版與壓縮間距 CSS ---
 st.markdown("""
     <style>
     /* 1. 搜尋區域對齊：讓放大鏡按鈕跟輸入框底部齊平 */
@@ -32,7 +32,6 @@ st.markdown("""
         padding: 45px 20px 30px 20px; animation: fadeIn 0.3s forwards;
     }
     
-    /* 右上角叉叉 - 使用 HTML 連結模擬關閉 */
     .close-x {
         position: absolute; top: 10px; right: 20px;
         font-size: 35px; color: #555; text-decoration: none;
@@ -41,21 +40,43 @@ st.markdown("""
     }
     .close-x:hover { color: #000; }
 
-    /* 框內「點我看座位」按鈕樣式 */
     .anchor-btn {
         display: inline-block; background-color: #000; color: #fff !important;
         padding: 15px 30px; border-radius: 10px; text-decoration: none;
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 15px;
     }
+
+    /* 3. 強制壓縮地圖行列間距 */
+    [data-testid="stHorizontalBlock"] {
+        gap: 0px !important; /* 縮小左右按鈕間隙 */
+    }
+    [data-testid="column"] {
+        margin-bottom: -18px !important; /* 強制縮減行與行之間的垂直距離 */
+    }
     
-    /* 自動捲動置中偏移量 */
+    /* 讓桌子按鈕更緊湊 */
+    .stButton > button {
+        height: 32px !important;
+        padding-top: 0px !important;
+        padding-bottom: 0px !important;
+        line-height: 32px !important;
+        font-size: 14px !important;
+    }
+    
+    /* 調整大標籤 (舞台、入口) 的間距 */
+    .label-box {
+        margin: 5px 0 !important;
+        padding: 8px !important;
+        font-size: 18px;
+    }
+
     .table-anchor { scroll-margin-top: 350px; }
     
-    /* 搜尋到的桌子變亮黃色 */
+    /* 亮黃色選中桌子 */
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
         border: 3px solid #FBC02D !important; font-weight: bold;
-        transform: scale(1.15);
+        transform: scale(1.1);
     }
     
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -92,15 +113,15 @@ def draw_seating_chart(highlighted_tables):
     for r_idx, row in df_map.iterrows():
         row_content = "".join([str(v) for v in row if not pd.isna(v)])
         
-        # 繪製標籤列 (舞台、入口等)
+        # 標籤列
         if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
             color = "#FF4B4B" if "舞台" in row_content else "#2E7D32"
-            st.markdown(f"""<div style='background-color:{color}; color:white; text-align:center; 
-                padding:12px; border-radius:10px; font-weight:bold; font-size:20px; margin: 10px 0;'>
+            st.markdown(f"""<div class='label-box' style='background-color:{color}; color:white; text-align:center; 
+                border-radius:10px; font-weight:bold;'>
                 {row_content}</div>""", unsafe_allow_html=True)
             continue
 
-        # 繪製桌位按鈕
+        # 桌位按鈕
         cols = st.columns(num_cols) 
         for c_idx, val in enumerate(row):
             with cols[c_idx]:
@@ -110,27 +131,24 @@ def draw_seating_chart(highlighted_tables):
                         table_num = int(float(val))
                         is_active = table_num in highlight_set
                         
-                        # 特殊顯示 VIP
                         display_name = str(table_num)
                         if table_num == 1: display_name = "VIP1"
                         elif table_num == 2: display_name = "VIP2"
                         elif table_num == 3: display_name = "VIP3"
                         
-                        # 設置錨點供自動捲動使用
                         st.markdown(f"<div id='table_{table_num}' class='table-anchor'></div>", unsafe_allow_html=True)
                         
                         st.button(display_name, key=f"btn_{r_idx}_{c_idx}_{table_num}", 
                                   type="primary" if is_active else "secondary", 
                                   use_container_width=True)
                     except:
-                        st.caption(cell_text)
+                        st.markdown(f"<p style='font-size:10px; text-align:center; margin:0; color:#666;'>{cell_text}</p>", unsafe_allow_html=True)
 
 # --- 3. 介面內容 ---
 st.title("🎟️ 千人宴桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
-    # 搜尋 UI：文字框與放大鏡對齊
     c_input, c_btn = st.columns([4, 1])
     with c_input:
         search_q = st.text_input("請輸入票號查詢：", placeholder="請輸入票號數字，例如：1351", key="search_main")
@@ -146,8 +164,7 @@ with tab1:
                 first_row = found.iloc[0]
                 st.session_state.focus_table = int(first_row['桌號'])
                 
-                # --- 🎨 完美浮動視窗：純 HTML 排版 ---
-                # 點擊叉叉導向 "./" 會刷新狀態並關閉小框，不跳新視窗
+                # 彈出小框 (修正對齊版本)
                 st.markdown(f"""
                     <div class="popup-container">
                         <a href="./" target="_self" class="close-x">×</a>
