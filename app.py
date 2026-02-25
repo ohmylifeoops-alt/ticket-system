@@ -1,134 +1,145 @@
 import streamlit as st
 import pandas as pd
 import os
+import io
 
-# --- 1. 系統效能與雲端設定 ---
+# --- 1. 系統效能與設定 ---
 LAYOUT_FILE = '排桌.xlsx - 工作表1.csv' 
+# 雲端資料庫 URL (維持原樣)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1m7Ak2e7QZdXWYdzKL77g20gHieId5bRpRZsVtyQG05g/export?format=csv"
 
-st.set_page_config(page_title="宴會桌次實景管理系統", page_icon="🎟️", layout="wide")
+st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="🎟️", layout="wide")
 
-# 讀取雲端賓客資料 (緩存 30 秒)
+# 讀取雲端資料庫 (緩存 30 秒)
 @st.cache_data(ttl=30, show_spinner=False)
-def load_cloud_data():
+def load_data():
     try:
         data = pd.read_csv(SHEET_URL)
-        if "票號" in data.columns:
-            data['票號'] = pd.to_numeric(data['票號'], errors='coerce')
+        # 強制將桌號轉為整數數字，若為空或非數字則設為 0
+        if "桌號" in data.columns:
+            data['桌號'] = pd.to_numeric(data['桌號'], errors='coerce').fillna(0).astype(int)
         return data
     except:
         return pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
 
-df_guest = load_cloud_data()
+# 取得目前最新資料
+df_guest = load_data()
 
-def calculate_table(ticket_number):
-    try:
-        return (int(ticket_number) - 1) // 10 + 1
-    except:
-        return 0
-
-# --- 2. 實景地圖繪製 (動態欄位校正版) ---
+# --- 2. 實景地圖繪製 (支援 VIP 顯示) ---
 def draw_seating_chart(highlighted_tables):
     if not os.path.exists(LAYOUT_FILE):
-        st.error("❌ 找不到佈局檔案，請確認 CSV 已上傳至 GitHub。")
+        st.error(f"❌ 找不到佈局檔案 {LAYOUT_FILE}")
         return
 
-    # 讀取最新佈局檔
     df_map = pd.read_csv(LAYOUT_FILE, header=None)
-    num_cols = len(df_map.columns) # 動態偵測欄位數 (例如現在是 9 欄)
-    
+    num_cols = len(df_map.columns) 
     highlight_set = set(highlighted_tables)
-    st.markdown("### 🏟️ 場地實景佈局圖")
+    
+    st.markdown("### 🏟️ 千人宴場地實景佈局")
     
     for r_idx, row in df_map.iterrows():
-        # 檢查整列內容
         row_content = "".join([str(v) for v in row if not pd.isna(v)])
         
-        # --- 🚩 滿版大標籤處理 (舞台、入口、電視牆) ---
+        # 標籤處理 (舞台、入口)
         if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
             color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
-            icon = "🚩" if "舞台" in row_content else ("📺" if "電視" in row_content else "🚪")
-            st.markdown(f"""
-                <div style='background-color:{color}; color:white; text-align:center; 
+            st.markdown(f"""<div style='background-color:{color}; color:white; text-align:center; 
                 padding:12px; border-radius:10px; font-weight:bold; font-size:20px; margin: 10px 0;'>
-                {icon} {row_content}
-                </div>
-                """, unsafe_allow_html=True)
+                {row_content}</div>""", unsafe_allow_html=True)
             continue
 
-        # --- 🔘 桌位按鈕處理 (動態對齊欄位) ---
         cols = st.columns(num_cols) 
         for c_idx, val in enumerate(row):
-            if c_idx >= num_cols: break 
             with cols[c_idx]:
                 cell_text = str(val).strip() if not pd.isna(val) else ""
-                
                 if cell_text in ["", "nan"]:
                     st.write("")
-                elif "電視" in cell_text:
-                    st.markdown("<div style='background-color:#333; color:white; text-align:center; padding:5px; border-radius:5px;'>📺</div>", unsafe_allow_html=True)
                 else:
                     try:
-                        # 嘗試轉為桌號
                         table_num = int(float(val))
                         is_active = table_num in highlight_set
-                        st.button(f"{table_num}", key=f"btn_{r_idx}_{c_idx}_{table_num}", 
+                        
+                        # 特殊顯示 VIP1, 2, 3
+                        display_name = str(table_num)
+                        if table_num == 1: display_name = "VIP1"
+                        elif table_num == 2: display_name = "VIP2"
+                        elif table_num == 3: display_name = "VIP3"
+                        
+                        st.button(display_name, key=f"btn_{r_idx}_{c_idx}_{table_num}", 
                                   type="primary" if is_active else "secondary", 
                                   use_container_width=True)
                     except:
-                        # 非數字則顯示一般文字
-                        if cell_text != "nan": st.caption(cell_text)
+                        st.caption(cell_text)
 
 # --- 3. 介面內容 ---
-st.title("🎟️ 宴會桌次實景管理系統")
+st.title("🎟️ 千人宴桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
+# --- 頁籤一：搜尋 ---
 with tab1:
-    search_q = st.text_input("🔍 搜尋姓名、電話或票號：", key="search_main")
+    search_q = st.text_input("🔍 搜尋姓名、電話或票號：", key="search_main", placeholder="請輸入資訊...")
     highlighted_list = []
+    
     if search_q:
         mask = df_guest.astype(str).apply(lambda x: x.str.contains(search_q, case=False)).any(axis=1)
         found = df_guest[mask]
+        
         if not found.empty:
-            highlighted_list = found['桌號'].dropna().unique().astype(int).tolist()
+            # 取得該賓客手動填寫的桌號
+            highlighted_list = found['桌號'].unique().tolist()
+            # 3. 彈跳小框提示
+            for _, row in found.iterrows():
+                st.toast(f"🔔 {row['姓名']} 貴賓：您坐在第 {row['桌號'] if row['桌號'] > 3 else 'VIP' + str(row['桌號'])} 桌")
             st.success(f"✅ 找到賓客，分配在：{highlighted_list} 桌")
+        else:
+            st.error("查無此賓客資訊，請確認輸入是否正確。")
+            
     draw_seating_chart(highlighted_list)
 
+# --- 頁籤二：批次登記 (支援上傳 Excel) ---
 with tab2:
-    st.subheader("📝 登記驗證 (支援批次)")
-    mode = st.radio("模式：", ["單筆", "批次"], horizontal=True)
-    with st.form("input_form", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        with c1:
-            name = st.text_input("領票人姓名")
-            phone = st.text_input("電話")
-        with c2:
-            seller = st.text_input("售票負責人")
-            if mode == "單筆":
-                start_t = st.number_input("票號", 1, 1700, 1)
-                count = 1
-            else:
-                ca, cb = st.columns(2)
-                with ca: start_t = st.number_input("起始票號", 1, 1700, 1)
-                with cb: count = st.number_input("張數", 1, 100, 10)
-        if st.form_submit_button("執行驗證"):
-            if not name.strip():
-                st.error("⚠️ 錯誤：姓名不能為空！")
-            else:
-                t_range = range(int(start_t), int(start_t) + int(count))
-                existing = set(df_guest['票號'].dropna().astype(int).values) if not df_guest.empty else set()
-                conflicts = [t for t in t_range if t in existing]
+    st.subheader("📝 登記驗證 (支援 Excel 批次上傳)")
+    
+    uploaded_excel = st.file_uploader("上傳 Excel 登記表 (.xlsx)", type=["xlsx"])
+    if uploaded_excel:
+        try:
+            batch_df = pd.read_excel(uploaded_excel)
+            st.write("待驗證資料預覽：")
+            st.dataframe(batch_df.head(), use_container_width=True)
+            
+            if st.button("執行批次防呆驗證"):
+                # 簡單防呆：檢查票號是否重複
+                existing_tickets = set(df_guest['票號'].dropna().astype(int))
+                new_tickets = batch_df['票號'].tolist()
+                conflicts = [t for t in new_tickets if t in existing_tickets]
+                
                 if conflicts:
-                    st.error(f"❌ 錯誤：票號 {conflicts} 已被登記過！")
+                    st.error(f"❌ 錯誤：票號 {conflicts} 已在系統中登記過！")
                 else:
                     st.balloons()
-                    st.success("🎉 驗證通過！請將內容貼至 Google Sheets：")
-                    final_rows = [f"{name}\t{phone}\t{t}\t{seller}\t{calculate_table(t)}" for t in t_range]
-                    st.code("\n".join(final_rows), language="text")
+                    st.success("🎉 批次驗證通過！請點擊資料中心查看合併結果。")
+        except Exception as e:
+            st.error(f"讀取 Excel 失敗: {e}")
 
+# --- 頁籤三：數據中心 (支援下載 Excel) ---
 with tab3:
-    st.subheader("📊 資料庫預覽")
-    st.dataframe(df_guest.sort_values(by="票號") if not df_guest.empty else df_guest, use_container_width=True)
-    if st.button("🔄 強制重新讀取 (地圖與雲端)"):
+    st.subheader("📊 千人宴資料庫總表")
+    
+    # 下載 Excel 功能
+    if not df_guest.empty:
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df_guest.to_excel(writer, index=False, sheet_name='賓客名單')
+        
+        st.download_button(
+            label="📥 下載完整資料庫 (Excel)",
+            data=buffer.getvalue(),
+            file_name="千人宴賓客總表.xlsx",
+            mime="application/vnd.ms-excel"
+        )
+    
+    st.dataframe(df_guest.sort_values(by="票號"), use_container_width=True)
+    
+    if st.button("🔄 強制更新雲端數據"):
         st.cache_data.clear()
         st.rerun()
