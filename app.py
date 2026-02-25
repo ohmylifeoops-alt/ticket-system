@@ -13,7 +13,7 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# 自定義 CSS (強化小框與右上角叉叉)
+# 自定義 CSS
 st.markdown("""
     <style>
     .floating-info {
@@ -23,17 +23,19 @@ st.markdown("""
         text-align: center; border: 4px solid #DAA520; animation: fadeIn 0.3s;
         min-width: 350px;
     }
-    /* 真正的叉叉按鈕樣式 */
     .close-x {
         position: absolute; top: 10px; right: 20px;
         font-size: 32px; font-weight: bold; color: #555;
-        cursor: pointer; line-height: 1; transition: 0.2s;
-        background: none; border: none;
+        cursor: pointer; background: none; border: none;
     }
-    .close-x:hover { color: #000; transform: scale(1.2); }
-    
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .table-anchor { scroll-margin-top: 300px; }
+    
+    /* 搜尋按鈕放大鏡樣式 */
+    div.stButton > button:first-child {
+        height: 3em;
+        margin-top: 28px;
+    }
     
     /* 亮黃色目標桌子 */
     .stButton > button[kind="primary"] {
@@ -50,6 +52,8 @@ def load_data():
         data = pd.read_csv(SHEET_URL)
         if "桌號" in data.columns:
             data['桌號'] = pd.to_numeric(data['桌號'], errors='coerce').fillna(0).astype(int)
+        if "票號" in data.columns:
+            data['票號'] = pd.to_numeric(data['票號'], errors='coerce').fillna(0).astype(int)
         return data
     except:
         return pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
@@ -88,36 +92,44 @@ st.title("🎟️ 千人宴桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
-    # 搜尋欄 (拿掉清除查詢按鈕)
-    search_q = st.text_input("🔍 搜尋姓名、電話或票號：", key="search_main", placeholder="輸入後自動定位...")
+    # 搜尋 UI：文字框 + 放大鏡按鈕
+    c_input, c_btn = st.columns([4, 1])
+    with c_input:
+        search_q = st.text_input("請輸入票號查詢：", placeholder="例如：888", key="search_main")
+    with c_btn:
+        search_trigger = st.button("🔍 查詢")
 
-    if search_q:
-        mask = df_guest.astype(str).apply(lambda x: x.str.contains(search_q, case=False)).any(axis=1)
-        found = df_guest[mask]
-        
-        if not found.empty:
-            first_row = found.iloc[0]
-            st.session_state.focus_table = int(first_row['桌號'])
+    if search_q or search_trigger:
+        try:
+            # 強制精確比對票號 (數值比對)
+            q_num = int(search_q)
+            found = df_guest[df_guest['票號'] == q_num]
             
-            # 建立小框內容
-            st.markdown(f"""
-                <div class="floating-info">
-                    <form action="/" method="get">
-                        <button type="submit" class="close-x">×</button>
-                    </form>
-                    <h2 style="color: black; margin-top: 10px;">👋 {first_row['姓名']} 貴賓</h2>
-                    <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
-                        您的位置在：第 {st.session_state.focus_table} 桌
-                    </p>
-                    <a href="#table_{st.session_state.focus_table}" target="_self" style="text-decoration: none;">
-                        <button style="background-color: #000; color: #fff; padding: 15px 30px; border-radius: 10px; border: none; cursor: pointer; font-size: 20px; font-weight: bold;">
-                            👉 點我看座位 (自動定位)
-                        </button>
-                    </a>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.session_state.focus_table = None
+            if not found.empty:
+                first_row = found.iloc[0]
+                st.session_state.focus_table = int(first_row['桌號'])
+                
+                st.markdown(f"""
+                    <div class="floating-info">
+                        <form action="/" method="get">
+                            <button type="submit" class="close-x">×</button>
+                        </form>
+                        <h2 style="color: black; margin-top: 10px;">👋 {first_row['姓名']} 貴賓</h2>
+                        <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
+                            您的位置在：第 {st.session_state.focus_table} 桌
+                        </p>
+                        <a href="#table_{st.session_state.focus_table}" target="_self" style="text-decoration: none;">
+                            <button style="background-color: #000; color: #fff; padding: 15px 30px; border-radius: 10px; border: none; cursor: pointer; font-size: 20px; font-weight: bold;">
+                                👉 點我看座位 (自動定位)
+                            </button>
+                        </a>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.session_state.focus_table = None
+                if search_q: st.error("查無此票號，請重新確認。")
+        except ValueError:
+            if search_q: st.error("請輸入正確的數字票號。")
 
     draw_seating_chart([st.session_state.focus_table] if st.session_state.focus_table else [])
 
