@@ -12,7 +12,7 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS 修正：徹底消除上下多餘間距 ---
+# --- 🎨 完美還原與精準間距 CSS ---
 st.markdown("""
     <style>
     /* 搜尋區域對齊 */
@@ -21,7 +21,7 @@ st.markdown("""
         margin-top: 28px !important;
     }
 
-    /* 浮動視窗絕對排版 */
+    /* 浮動視窗 (維持完美版) */
     .popup-container {
         position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%);
         width: 380px; background-color: #FFD700; border-radius: 20px;
@@ -29,56 +29,40 @@ st.markdown("""
         text-align: center; border: 4px solid #DAA520; 
         padding: 45px 20px 30px 20px; animation: fadeIn 0.3s forwards;
     }
-    
     .close-x {
         position: absolute; top: 10px; right: 20px;
         font-size: 35px; color: #555; text-decoration: none;
         font-family: Arial, sans-serif; font-weight: bold; line-height: 1;
     }
-
     .anchor-btn {
         display: inline-block; background-color: #000; color: #fff !important;
         padding: 15px 30px; border-radius: 10px; text-decoration: none;
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 15px;
     }
 
-    /* 3. 地圖間距優化：徹底針對上下間距壓縮 */
-    /* 移除所有垂直區塊的預設 padding */
-    [data-testid="stVerticalBlock"] > div {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-    
-    /* 讓每一橫排按鈕緊貼 */
-    [data-testid="stHorizontalBlock"] {
-        gap: 0.5rem !important; /* 保持左右間距 */
-        margin-bottom: -15px !important; /* 強制上下縮減 */
+    /* 3. 還原：標籤盒樣式 (舞台、入口) */
+    .label-box-original {
+        background-color: var(--bg-color);
+        color: white; text-align: center; 
+        padding: 15px !important; /* 還原厚度 */
+        border-radius: 10px; font-weight: bold; 
+        font-size: 22px !important; /* 還原大字體 */
+        margin: 15px 0 !important; /* 還原顯眼間距 */
+        width: 100%;
     }
 
-    /* 針對 column 內部進行微調 */
+    /* 4. 關鍵：桌次區垂直間距壓縮邏輯 */
+    /* 這裡透過 CSS 選取所有裝載桌子按鈕的容器，強制縮減垂直 Margin */
     [data-testid="column"] {
-        padding: 0px !important;
+        margin-bottom: -10px !important; /* 調整此數值可精準控制上下緊密度 */
     }
     
-    /* 桌子按鈕高度壓縮 */
-    .stButton > button {
-        height: 32px !important;
-        padding: 0px !important;
-        font-size: 13px !important;
-        margin: 0px !important;
-    }
-    
-    .label-box {
-        margin: 2px 0 !important; /* 舞台入口間距縮小 */
-        padding: 5px !important;
-        font-size: 16px;
-    }
-
     .table-anchor { scroll-margin-top: 350px; }
     
+    /* 亮黃色選中桌子 */
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
-        border: 2px solid #FBC02D !important; font-weight: bold;
+        border: 3px solid #FBC02D !important; font-weight: bold;
         transform: scale(1.1);
     }
     
@@ -100,9 +84,10 @@ def load_data():
 
 df_guest = load_data()
 
+# --- 2. 實景地圖繪製 ---
 def draw_seating_chart(highlighted_tables):
     if not os.path.exists(LAYOUT_FILE):
-        st.error(f"❌ 找不到佈局檔案：{LAYOUT_FILE}")
+        st.error(f"❌ 找不到場地佈局檔案：{LAYOUT_FILE}")
         return
 
     df_map = pd.read_csv(LAYOUT_FILE, header=None)
@@ -111,14 +96,17 @@ def draw_seating_chart(highlighted_tables):
     
     st.markdown("### 🏟️ 千人宴場地實景佈局圖")
     
-    # 使用一個特殊的容器來包裹所有桌次，減少容器間距
     for r_idx, row in df_map.iterrows():
         row_content = "".join([str(v) for v in row if not pd.isna(v)])
+        
+        # --- 還原：標籤處理 (舞台、入口、電視牆) ---
         if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
-            color = "#FF4B4B" if "舞台" in row_content else "#2E7D32"
-            st.markdown(f"<div class='label-box' style='background-color:{color}; color:white; text-align:center; border-radius:8px; font-weight:bold;'>{row_content}</div>", unsafe_allow_html=True)
+            color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
+            st.markdown(f"""<div class="label-box-original" style="--bg-color: {color};">
+                {row_content}</div>""", unsafe_allow_html=True)
             continue
 
+        # --- 桌位按鈕 (透過 columns 橫向展開) ---
         cols = st.columns(num_cols) 
         for c_idx, val in enumerate(row):
             with cols[c_idx]:
@@ -128,13 +116,16 @@ def draw_seating_chart(highlighted_tables):
                         table_num = int(float(val))
                         is_active = table_num in highlight_set
                         display_name = f"VIP{table_num}" if table_num in [1,2,3] else str(table_num)
-                        # 設置錨點
+                        
                         st.markdown(f"<div id='table_{table_num}' class='table-anchor'></div>", unsafe_allow_html=True)
-                        st.button(display_name, key=f"btn_{r_idx}_{c_idx}_{table_num}", type="primary" if is_active else "secondary", use_container_width=True)
+                        st.button(display_name, key=f"btn_{r_idx}_{c_idx}_{table_num}", 
+                                  type="primary" if is_active else "secondary", 
+                                  use_container_width=True)
                     except:
-                        st.markdown(f"<p style='font-size:10px; text-align:center; margin:0; line-height:1; color:#666;'>{cell_text}</p>", unsafe_allow_html=True)
+                        # 這是非桌號的文字說明，維持原樣
+                        st.caption(cell_text)
 
-# 介面部分
+# --- 3. 介面內容 ---
 st.title("🎟️ 千人宴桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
@@ -156,13 +147,17 @@ with tab1:
                     <div class="popup-container">
                         <a href="./" target="_self" class="close-x">×</a>
                         <h2 style="color: black; margin: 0;">👋 {first_row['姓名']} 貴賓</h2>
-                        <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">您的位置在：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌</p>
-                        <a href="#table_{st.session_state.focus_table}" target="_self" class="anchor-btn">👉 點我看座位 (自動定位)</a>
+                        <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
+                            您的位置在：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌
+                        </p>
+                        <a href="#table_{st.session_state.focus_table}" target="_self" class="anchor-btn">
+                            👉 點我看座位 (自動定位)
+                        </a>
                     </div>
                     """, unsafe_allow_html=True)
             else:
                 st.session_state.focus_table = None
-                if search_q: st.error("查無票號")
+                if search_q: st.error("查無此票號")
         except:
             if search_q: st.error("請輸入數字")
 
