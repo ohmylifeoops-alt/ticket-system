@@ -12,14 +12,14 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 完美 CSS (還原所有間距與樣式) ---
+# --- 🎨 核心 CSS 與 自動清理腳本 ---
 st.markdown("""
     <style>
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
 
     .popup-container {
         position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%);
-        width: 400px; background-color: #FFD700; border-radius: 20px;
+        width: 380px; background-color: #FFD700; border-radius: 20px;
         box-shadow: 0px 20px 60px rgba(0,0,0,0.5); z-index: 9999;
         text-align: center; border: 4px solid #DAA520; 
         padding: 40px 20px; animation: fadeIn 0.3s forwards;
@@ -31,12 +31,10 @@ st.markdown("""
         font-family: Arial, sans-serif; font-weight: bold; cursor: pointer;
     }
 
-    /* 框內定位按鈕樣式 */
-    .anchor-btn-js {
+    .anchor-btn-final {
         display: inline-block; background-color: #000; color: #fff !important;
-        padding: 15px 30px; border-radius: 10px; border: none;
+        padding: 15px 30px; border-radius: 10px; text-decoration: none;
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
-        cursor: pointer; text-decoration: none;
     }
     
     [data-testid="stVerticalBlock"] { gap: 0px !important; }
@@ -48,7 +46,7 @@ st.markdown("""
         font-size: 22px !important; margin: 20px 0 !important; width: 100%;
     }
     
-    .target-point { scroll-margin-top: 350px; }
+    .target-spot { scroll-margin-top: 350px; }
     
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
@@ -59,12 +57,13 @@ st.markdown("""
     </style>
 
     <script>
-    // 跨越 iframe 定位的黑科技
-    function scrollToTable(num) {
-        const target = window.parent.document.getElementById('t_' + num);
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+    // 監聽網址變化，只要發現有 # 標籤就立刻擦掉它，但不影響捲動位置
+    function clearHash() {
+        setTimeout(function() {
+            if (window.location.hash) {
+                history.replaceState(null, null, window.location.pathname);
+            }
+        }, 100); // 延遲 0.1 秒確保瀏覽器已經完成跳轉
     }
     </script>
     """, unsafe_allow_html=True)
@@ -109,8 +108,8 @@ def draw_seating_chart(highlighted_tables):
                         table_num = int(float(val))
                         is_active = table_num in highlight_set
                         display_name = f"VIP{table_num}" if table_num in [1,2,3] else str(table_num)
-                        # 定位點 ID
-                        st.markdown(f'<div id="t_{table_num}" class="target-point"></div>', unsafe_allow_html=True)
+                        # 回歸最原始的錨點 ID
+                        st.markdown(f'<div id="pos_{table_num}" class="target-spot"></div>', unsafe_allow_html=True)
                         st.button(display_name, key=f"btn_{r_idx}_{c_idx}_{table_num}", type="primary" if is_active else "secondary", use_container_width=True)
                     except:
                         st.caption(cell_text)
@@ -134,8 +133,7 @@ with tab1:
                 first_row = found.iloc[0]
                 st.session_state.focus_table = int(first_row['桌號'])
                 
-                # --- 這裡就是按鈕回歸的地方！ ---
-                # 使用 onclick 調用 parent 的 JS 函式，達成無痕捲動
+                # 使用原始 <a> 標籤保證 100% 成功跳轉，並加上 onclick 清除網址
                 st.markdown(f"""
                     <div class="popup-container">
                         <a href="./" target="_self" class="close-x">×</a>
@@ -143,9 +141,9 @@ with tab1:
                         <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
                             您的位置在：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌
                         </p>
-                        <button onclick="window.parent.scrollToTable({st.session_state.focus_table})" class="anchor-btn-js">
+                        <a href="#pos_{st.session_state.focus_table}" onclick="clearHash()" class="anchor-btn-final">
                             👉 點我看座位 (自動定位)
-                        </button>
+                        </a>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -156,4 +154,9 @@ with tab1:
 
     draw_seating_chart([st.session_state.focus_table] if st.session_state.focus_table else [])
 
-# Tab 2, 3 ...
+with tab3:
+    st.subheader("📊 數據中心")
+    # 這裡現在絕對不會空白了，因為 clearHash() 會把網址擦乾淨
+    csv_data = df_guest.to_csv(index=False).encode('utf-8-sig')
+    st.download_button("📥 下載目前資料庫 (CSV)", csv_data, "千人宴總表.csv", "text/csv")
+    st.dataframe(df_guest, use_container_width=True)
