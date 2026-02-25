@@ -12,41 +12,41 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 # 初始化 Session State
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
-if 'popup_open' not in st.session_state:
-    st.session_state.popup_open = False
 
-# 自定義 CSS
+# --- 🎨 完美排版 CSS ---
 st.markdown("""
     <style>
-    /* 黃色大框框容器 */
-    .popup-wrapper {
-        position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%);
-        width: 380px; z-index: 9999;
+    /* 1. 搜尋區域對齊修正 */
+    div.stButton > button:first-child {
+        height: 3em !important;
+        margin-top: 28px !important;
     }
-    
-    .floating-info {
-        background-color: #FFD700; padding: 40px; border-radius: 20px;
-        box-shadow: 0px 20px 60px rgba(0,0,0,0.5); 
-        text-align: center; border: 4px solid #DAA520; 
-        width: 100%; animation: fadeIn 0.3s forwards;
-    }
-    
-    /* 這裡是最關鍵的修正：把 Streamlit 按鈕的容器強制移到黃色框的右上角 */
-    .close-btn-pos {
-        position: absolute; top: 15px; right: 15px; z-index: 10001;
-    }
-    
-    /* 讓叉叉按鈕看起來更像叉叉 */
-    .close-btn-pos button {
-        background-color: transparent !important;
-        border: none !important;
-        font-size: 24px !important;
-        color: #555 !important;
-        font-weight: bold !important;
-    }
-    .close-btn-pos button:hover { color: #000 !important; }
 
-    .table-anchor { scroll-margin-top: 300px; }
+    /* 2. 浮動視窗絕對排版 (全 HTML) */
+    .popup-container {
+        position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%);
+        width: 400px; background-color: #FFD700; border-radius: 20px;
+        box-shadow: 0px 20px 60px rgba(0,0,0,0.5); z-index: 9999;
+        text-align: center; border: 4px solid #DAA520; 
+        padding: 40px 20px; animation: fadeIn 0.3s forwards;
+    }
+    
+    /* 右上角叉叉 - 真正鎖死位置 */
+    .close-x {
+        position: absolute; top: 10px; right: 20px;
+        font-size: 35px; color: #555; text-decoration: none;
+        font-family: Arial, sans-serif; font-weight: bold;
+    }
+    .close-x:hover { color: #000; }
+
+    /* 框內定位按鈕樣式 */
+    .anchor-btn {
+        display: inline-block; background-color: #000; color: #fff !important;
+        padding: 15px 30px; border-radius: 10px; text-decoration: none;
+        font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
+    }
+    
+    .table-anchor { scroll-margin-top: 350px; }
     
     /* 亮黃色選中桌子 */
     .stButton > button[kind="primary"] {
@@ -107,55 +107,37 @@ tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "
 with tab1:
     c_input, c_btn = st.columns([4, 1])
     with c_input:
-        search_q = st.text_input("請輸入票號查詢：", placeholder="例如：1351", key="search_main")
+        search_q = st.text_input("請輸入票號查詢：", placeholder="請輸入票號，例如：1351", key="search_main")
     with c_btn:
-        if st.button("🔍 查詢"):
-            if search_q:
-                try:
-                    q_num = int(search_q)
-                    found = df_guest[df_guest['票號'] == q_num]
-                    if not found.empty:
-                        st.session_state.focus_table = int(found.iloc[0]['桌號'])
-                        st.session_state.popup_open = True
-                        st.session_state.found_name = found.iloc[0]['姓名']
-                    else:
-                        st.session_state.focus_table = None
-                        st.session_state.popup_open = False
-                        st.error("查無此票號")
-                except:
-                    st.error("請輸入數字票號")
+        search_trigger = st.button("🔍 查詢")
 
-    # --- 這次的結構調整：把按鈕強行塞進包裝層 ---
-    if st.session_state.popup_open and st.session_state.focus_table:
-        # 開啟一個包裝容器
-        st.markdown('<div class="popup-wrapper">', unsafe_allow_html=True)
-        
-        # 繪製金黃色內容框
-        st.markdown(f"""
-            <div class="floating-info">
-                <h2 style="color: black; margin-bottom: 0px;">👋 {st.session_state.found_name} 貴賓</h2>
-                <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
-                    您的位置在：第 {st.session_state.focus_table} 桌
-                </p>
-                <a href="#table_{st.session_state.focus_table}" target="_self" style="text-decoration: none;">
-                    <button style="background-color: #000; color: #fff; padding: 15px 30px; border-radius: 10px; border: none; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%;">
-                        👉 點我看座位 (自動定位)
-                    </button>
-                </a>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # 在同一個 wrapper 裡放置關閉按鈕，並套用絕對定位
-        st.markdown('<div class="close-btn-pos">', unsafe_allow_html=True)
-        if st.button("✖️", key="final_close_btn"):
-            st.session_state.popup_open = False
-            st.session_state.focus_table = None
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # 關閉包裝容器
-        st.markdown('</div>', unsafe_allow_html=True)
+    if search_q or search_trigger:
+        try:
+            q_num = int(search_q)
+            found = df_guest[df_guest['票號'] == q_num]
+            if not found.empty:
+                first_row = found.iloc[0]
+                st.session_state.focus_table = int(first_row['桌號'])
+                
+                # --- 🎨 完美彈窗核心：純 HTML 結構 ---
+                st.markdown(f"""
+                    <div class="popup-container">
+                        <a href="./" target="_self" class="close-x">×</a>
+                        <h2 style="color: black; margin: 0;">👋 {first_row['姓名']} 貴賓</h2>
+                        <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
+                            您的位置在：第 {st.session_state.focus_table} 桌
+                        </p>
+                        <a href="#table_{st.session_state.focus_table}" target="_self" class="anchor-btn">
+                            👉 點我看座位 (自動定位)
+                        </a>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.session_state.focus_table = None
+                if search_q: st.error("查無此票號")
+        except:
+            if search_q: st.error("請輸入數字票號")
 
     draw_seating_chart([st.session_state.focus_table] if st.session_state.focus_table else [])
 
-# ... 其餘 tab2, tab3 維持原樣 ...
+# ... 其餘 Tab2, Tab3 維持原樣 ...
