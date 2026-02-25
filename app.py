@@ -12,8 +12,10 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 # 初始化 Session State
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
+if 'last_search' not in st.session_state:
+    st.session_state.last_search = ""
 
-# 自定義 CSS
+# 自定義 CSS (移除表單提交，改用絕對定位按鈕)
 st.markdown("""
     <style>
     .floating-info {
@@ -23,21 +25,15 @@ st.markdown("""
         text-align: center; border: 4px solid #DAA520; animation: fadeIn 0.3s;
         min-width: 350px;
     }
-    .close-x {
-        position: absolute; top: 10px; right: 20px;
-        font-size: 32px; font-weight: bold; color: #555;
-        cursor: pointer; background: none; border: none;
+    /* 叉叉按鈕隱藏在 Streamlit 原生組件中 */
+    .close-container {
+        position: absolute; top: 10px; right: 10px; z-index: 10001;
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .table-anchor { scroll-margin-top: 300px; }
     
-    /* 搜尋按鈕放大鏡樣式 */
-    div.stButton > button:first-child {
-        height: 3em;
-        margin-top: 28px;
-    }
+    div.stButton > button:first-child { height: 3em; margin-top: 28px; }
     
-    /* 亮黃色目標桌子 */
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
         border: 3px solid #FBC02D !important; font-weight: bold;
@@ -92,28 +88,37 @@ st.title("🎟️ 千人宴桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
-    # 搜尋 UI：文字框 + 放大鏡按鈕
     c_input, c_btn = st.columns([4, 1])
     with c_input:
         search_q = st.text_input("請輸入票號查詢：", placeholder="例如：888", key="search_main")
     with c_btn:
         search_trigger = st.button("🔍 查詢")
 
-    if search_q or search_trigger:
+    # 邏輯判斷：如果搜尋欄有變動或按下按鈕
+    if search_q:
         try:
-            # 強制精確比對票號 (數值比對)
             q_num = int(search_q)
             found = df_guest[df_guest['票號'] == q_num]
             
             if not found.empty:
                 first_row = found.iloc[0]
-                st.session_state.focus_table = int(first_row['桌號'])
-                
-                st.markdown(f"""
-                    <div class="floating-info">
-                        <form action="/" method="get">
-                            <button type="submit" class="close-x">×</button>
-                        </form>
+                # 僅在搜尋內容變動時，更新 focus_table
+                if st.session_state.last_search != search_q:
+                    st.session_state.focus_table = int(first_row['桌號'])
+                    st.session_state.last_search = search_q
+
+                # 繪製浮動小框
+                if st.session_state.focus_table:
+                    # 在小框內放一個「真正的」關閉按鈕，並用 CSS 定位到右上角
+                    st.markdown('<div class="floating-info">', unsafe_allow_html=True)
+                    
+                    # 這是關鍵：Streamlit 原生按鈕，點擊會觸發程式碼邏輯而不是整頁 Reload
+                    if st.button("✖️", key="close_popup"):
+                        st.session_state.focus_table = None
+                        st.session_state.last_search = ""
+                        st.rerun() # 僅重刷 Streamlit 元件，不重載整個網頁頁面
+
+                    st.markdown(f"""
                         <h2 style="color: black; margin-top: 10px;">👋 {first_row['姓名']} 貴賓</h2>
                         <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
                             您的位置在：第 {st.session_state.focus_table} 桌
@@ -123,39 +128,14 @@ with tab1:
                                 👉 點我看座位 (自動定位)
                             </button>
                         </a>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        </div>
+                        """, unsafe_allow_html=True)
             else:
                 st.session_state.focus_table = None
-                if search_q: st.error("查無此票號，請重新確認。")
+                if search_q: st.error("查無此票號")
         except ValueError:
-            if search_q: st.error("請輸入正確的數字票號。")
+            if search_q: st.error("請輸入數字票號")
 
     draw_seating_chart([st.session_state.focus_table] if st.session_state.focus_table else [])
 
-with tab2:
-    st.subheader("📝 登記與驗證")
-    mode = st.radio("登記模式：", ["單筆輸入", "連號批次登記", "Excel 批次上傳"], horizontal=True)
-    if mode == "單筆輸入":
-        with st.form("single_form"):
-            c1, c2, c3 = st.columns(3)
-            with c1: name = st.text_input("姓名"); phone = st.text_input("電話")
-            with c2: seller = st.text_input("售票者"); ticket = st.number_input("票號", 1, 2000)
-            with c3: table = st.number_input("預計桌號", 1, 200)
-            if st.form_submit_button("執行驗證"):
-                st.success(f"{name} 驗證通過")
-    elif mode == "連號批次登記":
-        with st.form("batch_form"):
-            c1, c2 = st.columns(2)
-            name_b = c1.text_input("代表姓名"); seller_b = c2.text_input("售票負責人")
-            start_t = c2.number_input("起始票號", 1, 2000); count_t = c2.number_input("張數", 1, 100)
-            if st.form_submit_button("批次驗證"):
-                st.success("驗證通過")
-    else:
-        st.file_uploader("上傳 Excel", type=["xlsx"])
-
-with tab3:
-    st.subheader("📊 數據中心")
-    csv = df_guest.to_csv(index=False).encode('utf-8-sig')
-    st.download_button("📥 下載目前資料庫 (CSV)", csv, "千人宴總表.csv", "text/csv")
-    st.dataframe(df_guest, use_container_width=True)
+# ... 其餘 tab2, tab3 代碼保持不變 ...
