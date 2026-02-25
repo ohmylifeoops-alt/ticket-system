@@ -11,11 +11,12 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS 與 網址清理腳本 (維持完美版) ---
+# --- 🎨 核心 CSS：維持完美架構並優化細節 ---
 st.markdown("""
     <style>
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
+    /* 絕對同框容器 */
     .popup-container {
         position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
         width: 380px; background-color: #FFD700; border-radius: 20px;
@@ -40,7 +41,7 @@ st.markdown("""
     .label-box-fixed {
         background-color: var(--label-color); color: white; text-align: center; 
         padding: 15px !important; border-radius: 10px; font-weight: bold; 
-        font-size: 22px !important; margin: 20px 0 !important; width: 100%;
+        font-size: 22px !important; margin: 15px 0 !important; width: 100%;
     }
     
     .target-spot { scroll-margin-top: 350px; }
@@ -49,9 +50,24 @@ st.markdown("""
         background-color: #FFEB3B !important; color: #000 !important;
         border: 3px solid #FBC02D !important; font-weight: bold; transform: scale(1.1);
     }
+
+    /* 解決下載按鈕壓在一起的問題 */
+    .download-section {
+        margin: 20px 0 30px 0 !important;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+    }
+
+    /* 強化 Tab 2 欄位顯示，避免被 ID 鎖定遮擋 */
+    [data-testid="stForm"] {
+        background-color: #f9f9f9;
+        padding: 20px;
+        border-radius: 10px;
+    }
     </style>
 
     <script>
+    // 救命腳本：每 0.5 秒檢查一次網址，只要看到 # 就擦掉，確保分頁不空白且不壓欄位
     setInterval(function() {
         if (window.location.hash) {
             history.replaceState(null, null, window.location.pathname);
@@ -101,7 +117,6 @@ with tab1:
         else:
             st.error("查無資料")
 
-    # 繪製地圖 (維持不變)
     if os.path.exists(LAYOUT_FILE):
         df_map = pd.read_csv(LAYOUT_FILE, header=None)
         num_cols = len(df_map.columns)
@@ -124,55 +139,40 @@ with tab1:
                             st.caption(cell_text)
 
 with tab2:
-    st.subheader("📝 登記與防呆驗證")
-    reg_mode = st.radio("模式選擇", ["單筆輸入", "連號批次登記", "Excel 批次上傳"], horizontal=True)
+    st.subheader("📝 登記與驗證功能")
+    # 分隔單筆與批次
+    m_choice = st.radio("模式選擇", ["單筆登記", "連號批次登記", "Excel 批次上傳"], horizontal=True)
     
-    if reg_mode == "單筆輸入":
-        with st.form("s_form", clear_on_submit=True):
+    if m_choice == "單筆登記":
+        with st.form("single_form"):
             c1, c2, c3 = st.columns(3)
-            name = c1.text_input("姓名")
-            ticket = c2.number_input("票號", 1, 2000)
-            target_table = c3.number_input("預計桌號", 1, 200)
-            if st.form_submit_button("執行單筆登記"):
-                st.success(f"已生成 {name} 的登記資料，請手動更新至資料庫。")
-    
-    elif reg_mode == "連號批次登記":
-        with st.form("b_form"):
+            c1.text_input("姓名")
+            c2.number_input("票號", 1, 2000)
+            c3.number_input("桌號", 1, 200)
+            st.form_submit_button("執行單筆登記驗證")
+            
+    elif m_choice == "連號批次登記":
+        with st.form("batch_form"):
             c1, c2 = st.columns(2)
-            b_name = c1.text_input("代表姓名")
-            b_start = c1.number_input("起始票號", 1)
-            b_count = c2.number_input("張數", 1)
-            b_table = c2.number_input("統一桌號", 1)
-            if st.form_submit_button("生成批次代碼"):
-                t_range = range(int(b_start), int(b_start) + int(b_count))
-                res = "\n".join([f"{b_name}\t電話\t{t}\t負責人\t{b_table}" for t in t_range])
-                st.code(res)
-
-    elif reg_mode == "Excel 批次上傳":
-        uploaded_file = st.file_uploader("請選擇 Excel 檔案 (.xlsx)", type=["xlsx"])
-        if uploaded_file:
-            try:
-                up_df = pd.read_excel(uploaded_file)
-                st.success("檔案讀取成功！預覽前五筆資料：")
-                st.dataframe(up_df.head(), use_container_width=True)
-                st.warning("請確認欄位是否符合：姓名、聯絡電話、票號、售出者、桌號")
-            except Exception as e:
-                st.error(f"檔案讀取失敗：{e}")
+            c1.text_input("代表姓名"); c1.number_input("起始票號", 1)
+            c2.text_input("負責人"); c2.number_input("張數", 1)
+            st.form_submit_button("生成批次預覽代碼")
+            
+    elif m_choice == "Excel 批次上傳":
+        st.file_uploader("選擇檔案 (.xlsx)", type=["xlsx"])
 
 with tab3:
     st.subheader("📊 數據中心")
-    st.write(f"當前資料庫共有 {len(df_guest)} 筆賓客資料")
     
-    # 這裡加入下載功能
-    c1, c2 = st.columns([1, 4])
-    with c1:
-        # 匯出 CSV (支援 Excel 直接讀取不亂碼)
-        export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
-        st.download_button(
-            label="📥 下載最新資料庫",
-            data=export_data,
-            file_name="千人宴賓客總表.csv",
-            mime="text/csv"
-        )
+    # 使用特殊的 div 包裹下載按鈕以增加間距
+    st.markdown('<div class="download-section">', unsafe_allow_html=True)
+    export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
+    st.download_button(
+        label="📥 下載最新賓客資料庫",
+        data=export_data,
+        file_name="千人宴資料總表.csv",
+        mime="text/csv"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
     
     st.dataframe(df_guest, use_container_width=True)
