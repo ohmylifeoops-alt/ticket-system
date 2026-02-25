@@ -18,21 +18,34 @@ if 'popup_open' not in st.session_state:
 # 自定義 CSS
 st.markdown("""
     <style>
-    /* 容器：確保內容物絕對不溢出 */
-    .floating-info {
+    /* 黃色大框框容器 */
+    .popup-wrapper {
         position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%);
+        width: 380px; z-index: 9999;
+    }
+    
+    .floating-info {
         background-color: #FFD700; padding: 40px; border-radius: 20px;
-        box-shadow: 0px 20px 60px rgba(0,0,0,0.5); z-index: 9998;
+        box-shadow: 0px 20px 60px rgba(0,0,0,0.5); 
         text-align: center; border: 4px solid #DAA520; 
-        width: 380px; animation: fadeIn 0.3s forwards;
+        width: 100%; animation: fadeIn 0.3s forwards;
     }
     
-    /* 讓 Streamlit 的關閉按鈕浮在右上角 */
-    .close-button-container {
-        position: fixed; top: calc(35% - 100px); left: calc(50% + 150px);
-        z-index: 10000;
+    /* 這裡是最關鍵的修正：把 Streamlit 按鈕的容器強制移到黃色框的右上角 */
+    .close-btn-pos {
+        position: absolute; top: 15px; right: 15px; z-index: 10001;
     }
     
+    /* 讓叉叉按鈕看起來更像叉叉 */
+    .close-btn-pos button {
+        background-color: transparent !important;
+        border: none !important;
+        font-size: 24px !important;
+        color: #555 !important;
+        font-weight: bold !important;
+    }
+    .close-btn-pos button:hover { color: #000 !important; }
+
     .table-anchor { scroll-margin-top: 300px; }
     
     /* 亮黃色選中桌子 */
@@ -96,7 +109,6 @@ with tab1:
     with c_input:
         search_q = st.text_input("請輸入票號查詢：", placeholder="例如：1351", key="search_main")
     with c_btn:
-        # 當點擊查詢時，啟動小框
         if st.button("🔍 查詢"):
             if search_q:
                 try:
@@ -113,9 +125,12 @@ with tab1:
                 except:
                     st.error("請輸入數字票號")
 
-    # --- 關鍵修正：使用 Session State 控制小框顯示 ---
+    # --- 這次的結構調整：把按鈕強行塞進包裝層 ---
     if st.session_state.popup_open and st.session_state.focus_table:
-        # 1. 繪製金黃色背景框
+        # 開啟一個包裝容器
+        st.markdown('<div class="popup-wrapper">', unsafe_allow_html=True)
+        
+        # 繪製金黃色內容框
         st.markdown(f"""
             <div class="floating-info">
                 <h2 style="color: black; margin-bottom: 0px;">👋 {st.session_state.found_name} 貴賓</h2>
@@ -130,12 +145,15 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
         
-        # 2. 繪製真正的關閉按鈕，並用 CSS 定位到右上角
-        st.markdown('<div class="close-button-container">', unsafe_allow_html=True)
-        if st.button("✖️ 關閉", key="real_close_btn"):
+        # 在同一個 wrapper 裡放置關閉按鈕，並套用絕對定位
+        st.markdown('<div class="close-btn-pos">', unsafe_allow_html=True)
+        if st.button("✖️", key="final_close_btn"):
             st.session_state.popup_open = False
             st.session_state.focus_table = None
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # 關閉包裝容器
         st.markdown('</div>', unsafe_allow_html=True)
 
     draw_seating_chart([st.session_state.focus_table] if st.session_state.focus_table else [])
