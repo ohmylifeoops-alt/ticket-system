@@ -12,30 +12,30 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 # 初始化 Session State
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
-if 'show_popup' not in st.session_state:
-    st.session_state.show_popup = False
 
-# 自定義 CSS
+# 自定義 CSS (強化小框與右上角叉叉)
 st.markdown("""
     <style>
-    /* 浮動視窗本體 */
     .floating-info {
-        position: fixed; top: 25%; left: 50%; transform: translate(-50%, -50%);
-        background-color: #FFD700; padding: 35px; border-radius: 20px;
-        box-shadow: 0px 20px 50px rgba(0,0,0,0.5); z-index: 9999;
+        position: fixed; top: 30%; left: 50%; transform: translate(-50%, -50%);
+        background-color: #FFD700; padding: 40px; border-radius: 20px;
+        box-shadow: 0px 20px 60px rgba(0,0,0,0.5); z-index: 9999;
         text-align: center; border: 4px solid #DAA520; animation: fadeIn 0.3s;
-        min-width: 320px;
+        min-width: 350px;
     }
-    
-    /* 讓 Streamlit 按鈕能精確定位在右上角當叉叉 */
-    .close-container {
-        position: absolute; top: 10px; right: 10px; z-index: 10000;
+    /* 真正的叉叉按鈕樣式 */
+    .close-x {
+        position: absolute; top: 10px; right: 20px;
+        font-size: 32px; font-weight: bold; color: #555;
+        cursor: pointer; line-height: 1; transition: 0.2s;
+        background: none; border: none;
     }
+    .close-x:hover { color: #000; transform: scale(1.2); }
     
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .table-anchor { scroll-margin-top: 300px; }
     
-    /* 標記黃色桌子的特效 */
+    /* 亮黃色目標桌子 */
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
         border: 3px solid #FBC02D !important; font-weight: bold;
@@ -88,85 +88,57 @@ st.title("🎟️ 千人宴桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
-    col_search, col_clear = st.columns([4, 1])
-    with col_search:
-        search_q = st.text_input("🔍 搜尋姓名、電話或票號：", key="search_main")
-    with col_clear:
-        st.write(" ") 
-        if st.button("❌ 清除查詢", use_container_width=True):
-            st.session_state.focus_table = None
-            st.session_state.show_popup = False
-            st.rerun()
+    # 搜尋欄 (拿掉清除查詢按鈕)
+    search_q = st.text_input("🔍 搜尋姓名、電話或票號：", key="search_main", placeholder="輸入後自動定位...")
 
     if search_q:
         mask = df_guest.astype(str).apply(lambda x: x.str.contains(search_q, case=False)).any(axis=1)
         found = df_guest[mask]
+        
         if not found.empty:
             first_row = found.iloc[0]
             st.session_state.focus_table = int(first_row['桌號'])
-            st.session_state.show_popup = True
             
-            # 使用 st.container 配合 HTML 模擬浮動小框
-            if st.session_state.show_popup:
-                # 這裡是用來放關閉按鈕的特殊容器
-                with st.container():
-                    st.markdown(f"""
-                        <div class="floating-info">
-                            <h2 style="color: black; margin-top: 10px;">👋 {first_row['姓名']} 貴賓</h2>
-                            <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 15px 0;">
-                                您的位置在：第 {st.session_state.focus_table} 桌
-                            </p>
-                            <a href="#table_{st.session_state.focus_table}" target="_self" style="text-decoration: none;">
-                                <button style="background-color: #000; color: #fff; padding: 12px 25px; border-radius: 8px; border: none; cursor: pointer; font-size: 18px; font-weight: bold;">
-                                    👉 點我看座位 (自動定位)
-                                </button>
-                            </a>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    # 在小框上方放一個真正的 Streamlit 按鈕來關閉，避免 HTML 跳轉問題
-                    # 利用側邊懸浮按鈕或頂部按鈕來清空
-                    if st.button("關閉視窗 (X)", key="close_popup_btn"):
-                        st.session_state.show_popup = False
-                        st.session_state.focus_table = None
-                        st.rerun()
+            # 建立小框內容
+            st.markdown(f"""
+                <div class="floating-info">
+                    <form action="/" method="get">
+                        <button type="submit" class="close-x">×</button>
+                    </form>
+                    <h2 style="color: black; margin-top: 10px;">👋 {first_row['姓名']} 貴賓</h2>
+                    <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
+                        您的位置在：第 {st.session_state.focus_table} 桌
+                    </p>
+                    <a href="#table_{st.session_state.focus_table}" target="_self" style="text-decoration: none;">
+                        <button style="background-color: #000; color: #fff; padding: 15px 30px; border-radius: 10px; border: none; cursor: pointer; font-size: 20px; font-weight: bold;">
+                            👉 點我看座位 (自動定位)
+                        </button>
+                    </a>
+                </div>
+                """, unsafe_allow_html=True)
         else:
             st.session_state.focus_table = None
-            st.error("查無資訊")
 
     draw_seating_chart([st.session_state.focus_table] if st.session_state.focus_table else [])
 
 with tab2:
-    st.subheader("📝 登記驗證系統")
-    mode = st.radio("選擇模式：", ["單筆輸入", "連號批次登記", "Excel 批次上傳"], horizontal=True)
-
+    st.subheader("📝 登記與驗證")
+    mode = st.radio("登記模式：", ["單筆輸入", "連號批次登記", "Excel 批次上傳"], horizontal=True)
     if mode == "單筆輸入":
-        with st.form("single_form", clear_on_submit=True):
+        with st.form("single_form"):
             c1, c2, c3 = st.columns(3)
-            with c1:
-                name = st.text_input("姓名")
-                phone = st.text_input("電話")
-            with c2:
-                seller = st.text_input("售票者")
-                ticket = st.number_input("票號", 1, 2000, 1)
-            with c3:
-                table = st.number_input("預計桌號", 1, 200, 1)
+            with c1: name = st.text_input("姓名"); phone = st.text_input("電話")
+            with c2: seller = st.text_input("售票者"); ticket = st.number_input("票號", 1, 2000)
+            with c3: table = st.number_input("預計桌號", 1, 200)
             if st.form_submit_button("執行驗證"):
-                st.success(f"驗證通過：{name} (票號 {ticket})")
-
+                st.success(f"{name} 驗證通過")
     elif mode == "連號批次登記":
         with st.form("batch_form"):
             c1, c2 = st.columns(2)
-            name_b = c1.text_input("代表姓名")
-            phone_b = c1.text_input("電話")
-            seller_b = c2.text_input("售票負責人")
-            ca, cb = c2.columns(2)
-            start_t = ca.number_input("起始票號", 1, 2000, 1)
-            count_t = cb.number_input("張數", 1, 100, 10)
-            table_b = st.number_input("桌號", 1, 200, 1)
+            name_b = c1.text_input("代表姓名"); seller_b = c2.text_input("售票負責人")
+            start_t = c2.number_input("起始票號", 1, 2000); count_t = c2.number_input("張數", 1, 100)
             if st.form_submit_button("批次驗證"):
-                st.code("\n".join([f"{name_b}\t{phone_b}\t{t}\t{seller_b}\t{table_b}" for t in range(int(start_t), int(start_t)+int(count_t))]))
-
+                st.success("驗證通過")
     else:
         st.file_uploader("上傳 Excel", type=["xlsx"])
 
