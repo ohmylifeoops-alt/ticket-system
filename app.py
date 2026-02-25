@@ -1,79 +1,121 @@
 import streamlit as st
 import pandas as pd
 
+# 頁面配置
 st.set_page_config(page_title="VIP 席位配置系統", layout="wide")
 
-# 自定義 CSS 讓桌子看起來像「桌子」
+# 自定義桌位 CSS：模擬實體會場感
 st.markdown("""
     <style>
-    .table-box {
-        border: 2px solid #31333F;
-        border-radius: 10px;
-        padding: 10px;
-        background-color: #f0f2f6;
+    .table-card {
+        border: 2px solid #2E86C1;
+        border-radius: 12px;
+        padding: 15px;
+        background-color: #EBF5FB;
         text-align: center;
-        margin-bottom: 10px;
-        min-height: 120px;
+        margin-bottom: 20px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
     }
-    .vip-label { font-weight: bold; color: #ff4b4b; }
+    .table-header {
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: #1B4F72;
+        border-bottom: 2px solid #AED6F1;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+    }
+    .seat-item {
+        font-size: 0.95rem;
+        text-align: left;
+        color: #212F3C;
+        margin: 3px 0;
+    }
+    .non-sequential { color: #CB4335; font-weight: bold; } /* 非連號特別標註 */
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🎨 會場桌次平面配置圖")
+# ----------------------------------------------------------------
+# 1. 建立三個頁籤：桌次圖 (預設)、資料庫總表、上傳與下載
+# ----------------------------------------------------------------
+tab_map, tab_database, tab_files = st.tabs(["📍 現場桌次圖", "📋 資料庫總表", "⚙️ 檔案管理"])
 
-# 1. 檔案管理區
-with st.sidebar:
-    st.header("⚙️ 檔案中心")
-    uploaded_file = st.file_uploader("重新上傳座位表 (CSV)", type=["csv"])
-    
-    if uploaded_file:
-        df = pd.read_csv(uploaded_file)
-        # 提供下載原始檔
-        st.download_button("📥 下載目前資料庫", df.to_csv(index=False).encode('utf-8-sig'), "current_seats.csv")
+# 初始化 Session State (防止重新整理時資料消失)
+if 'df' not in st.session_state:
+    st.session_state.df = None
 
-# 2. 顯示邏輯
-if uploaded_file is not None:
-    # 這裡假設你的 CSV 有：Table_No, Seat_ID, VIP_Level, Name
-    # 如果有座標欄位 (X, Y) 更好，若沒有，我們依 Table_No 排序呈現
+# ----------------------------------------------------------------
+# 頁籤三：檔案管理 (優先處理資料來源)
+# ----------------------------------------------------------------
+with tab_files:
+    st.header("數據管理中心")
+    col_up, col_down = st.columns(2)
     
-    selected_vip = st.selectbox("選擇要查看的等級", ["VIP1", "VIP2", "VIP3"])
-    
-    # 篩選資料
-    display_df = df[df['VIP_Level'] == selected_vip]
-    
-    # 依據「桌號」分組 (這解決了非連號問題)
-    grouped = display_df.groupby('Table_No')
-    
-    # --- 開始繪製桌次圖 ---
-    st.subheader(f"📍 {selected_vip} 區域佈局")
-    
-    # 建立多欄位來模擬會場感 (例如一排 4 桌)
-    col_count = 4
-    cols = st.columns(col_count)
-    
-    for i, (table_no, group) in enumerate(grouped):
-        with cols[i % col_count]:
-            # 使用 HTML 標籤讓介面更像「圖」
-            seat_details = "<br>".join([f"💺 {row['Seat_ID']} ({row['Name']})" for _, row in group.iterrows()])
-            
-            st.markdown(f"""
-                <div class="table-box">
-                    <div style="font-size: 1.2em; font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 5px;">
-                        第 {table_no} 桌
+    with col_up:
+        st.subheader("📤 上傳最新座位表")
+        uploaded_file = st.file_uploader("選擇 CSV 檔案", type=["csv"])
+        if uploaded_file:
+            st.session_state.df = pd.read_csv(uploaded_file)
+            st.success("資料庫已成功更新！")
+
+    with col_down:
+        st.subheader("📥 下載目前資料庫")
+        if st.session_state.df is not None:
+            csv_data = st.session_state.df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="點擊下載目前的 CSV 檔案",
+                data=csv_data,
+                file_name='vip_seat_export.csv',
+                mime='text/csv',
+            )
+        else:
+            st.info("目前無資料可下載")
+
+# ----------------------------------------------------------------
+# 頁籤二：資料庫總表
+# ----------------------------------------------------------------
+with tab_database:
+    st.header("所有人員名單總表")
+    if st.session_state.df is not None:
+        st.dataframe(st.session_state.df, use_container_width=True)
+    else:
+        st.warning("請先到『檔案管理』分頁上傳資料。")
+
+# ----------------------------------------------------------------
+# 頁籤一：現場桌次圖 (首頁顯示)
+# ----------------------------------------------------------------
+with tab_map:
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        
+        # 選擇 VIP 等級
+        target_vip = st.radio("顯示區域：", ["VIP1", "VIP2", "VIP3"], horizontal=True)
+        
+        # 過濾該等級資料
+        filtered_df = df[df['VIP_Level'] == target_vip]
+        
+        # 關鍵邏輯：依據『桌號』分組，無視編號是否連號
+        tables = filtered_df.groupby('Table_No')
+        
+        st.subheader(f"🏟️ {target_vip} 區座次分佈")
+        
+        # 設定每列顯示幾桌 (例如一排 4 桌)
+        num_cols = 4
+        cols = st.columns(num_cols)
+        
+        # 遍歷每一桌進行繪製
+        for i, (table_no, group) in enumerate(tables):
+            with cols[i % num_cols]:
+                # 建立桌子 HTML 內容
+                seat_html = ""
+                for _, row in group.iterrows():
+                    seat_html += f'<div class="seat-item">💺 {row["Seat_ID"]} - {row["Name"]}</div>'
+                
+                # 渲染桌子卡片
+                st.markdown(f"""
+                    <div class="table-card">
+                        <div class="table-header">第 {table_no} 桌</div>
+                        {seat_html}
                     </div>
-                    <div style="font-size: 0.85em; text-align: left;">
-                        {seat_details}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-else:
-    st.info("👋 請上傳 CSV 檔案，我會立刻幫你繪製桌次平面圖！")
-    # 範例提示
-    st.write("預期格式：")
-    st.table(pd.DataFrame({
-        'Table_No': [49, 49, 50],
-        'Seat_ID': [101, 999, 103],
-        'Name': ['張三', '李四(非連號)', '王五'],
-        'VIP_Level': ['VIP1', 'VIP1', 'VIP1']
-    }))
+                    """, unsafe_allow_html=True)
+    else:
+        st.info("👋 歡迎使用座位系統。請先前往『檔案管理』上傳 CSV 資料庫以繪製地圖。")
