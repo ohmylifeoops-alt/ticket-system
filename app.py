@@ -12,49 +12,55 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 完美還原與精準間距 CSS ---
+# --- 🎨 完美排版與深度壓縮 CSS ---
 st.markdown("""
     <style>
-    /* 搜尋區域對齊 */
+    /* 1. 搜尋區域對齊 */
     div.stButton > button:first-child {
         height: 3em !important;
         margin-top: 28px !important;
     }
 
-    /* 浮動視窗 (維持完美版) */
+    /* 2. 浮動視窗絕對排版 (全 HTML) */
     .popup-container {
         position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%);
-        width: 380px; background-color: #FFD700; border-radius: 20px;
+        width: 400px; background-color: #FFD700; border-radius: 20px;
         box-shadow: 0px 20px 60px rgba(0,0,0,0.5); z-index: 9999;
         text-align: center; border: 4px solid #DAA520; 
-        padding: 45px 20px 30px 20px; animation: fadeIn 0.3s forwards;
+        padding: 40px 20px; animation: fadeIn 0.3s forwards;
     }
     .close-x {
         position: absolute; top: 10px; right: 20px;
         font-size: 35px; color: #555; text-decoration: none;
-        font-family: Arial, sans-serif; font-weight: bold; line-height: 1;
+        font-family: Arial, sans-serif; font-weight: bold;
     }
     .anchor-btn {
         display: inline-block; background-color: #000; color: #fff !important;
         padding: 15px 30px; border-radius: 10px; text-decoration: none;
-        font-size: 18px; font-weight: bold; width: 85%; margin-top: 15px;
+        font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
     }
 
-    /* 3. 還原：標籤盒樣式 (舞台、入口) */
-    .label-box-original {
-        background-color: var(--bg-color);
+    /* 3. 🔥 關鍵：深度消除上下排間距 🔥 */
+    /* 強制將 Streamlit 垂直塊的所有間距歸零 */
+    [data-testid="stVerticalBlock"] {
+        gap: 0px !important;
+    }
+    
+    /* 針對每一行橫向區塊進行垂直壓縮 */
+    [data-testid="stHorizontalBlock"] {
+        margin-top: -12px !important; /* 將下一排往上吸 */
+        margin-bottom: -12px !important;
+    }
+
+    /* 保持舞台等標籤的大氣感，不受上述壓縮影響 */
+    .label-box-fixed {
+        background-color: var(--label-color);
         color: white; text-align: center; 
-        padding: 15px !important; /* 還原厚度 */
+        padding: 15px !important;
         border-radius: 10px; font-weight: bold; 
-        font-size: 22px !important; /* 還原大字體 */
-        margin: 15px 0 !important; /* 還原顯眼間距 */
+        font-size: 22px !important;
+        margin: 20px 0 !important; /* 增加與桌子區的距離 */
         width: 100%;
-    }
-
-    /* 4. 關鍵：桌次區垂直間距壓縮邏輯 */
-    /* 這裡透過 CSS 選取所有裝載桌子按鈕的容器，強制縮減垂直 Margin */
-    [data-testid="column"] {
-        margin-bottom: -10px !important; /* 調整此數值可精準控制上下緊密度 */
     }
     
     .table-anchor { scroll-margin-top: 350px; }
@@ -84,7 +90,6 @@ def load_data():
 
 df_guest = load_data()
 
-# --- 2. 實景地圖繪製 ---
 def draw_seating_chart(highlighted_tables):
     if not os.path.exists(LAYOUT_FILE):
         st.error(f"❌ 找不到場地佈局檔案：{LAYOUT_FILE}")
@@ -99,14 +104,14 @@ def draw_seating_chart(highlighted_tables):
     for r_idx, row in df_map.iterrows():
         row_content = "".join([str(v) for v in row if not pd.isna(v)])
         
-        # --- 還原：標籤處理 (舞台、入口、電視牆) ---
+        # 標籤列 (舞台等)
         if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
             color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
-            st.markdown(f"""<div class="label-box-original" style="--bg-color: {color};">
+            st.markdown(f"""<div class="label-box-fixed" style="--label-color: {color};">
                 {row_content}</div>""", unsafe_allow_html=True)
             continue
 
-        # --- 桌位按鈕 (透過 columns 橫向展開) ---
+        # 桌位按鈕
         cols = st.columns(num_cols) 
         for c_idx, val in enumerate(row):
             with cols[c_idx]:
@@ -122,7 +127,6 @@ def draw_seating_chart(highlighted_tables):
                                   type="primary" if is_active else "secondary", 
                                   use_container_width=True)
                     except:
-                        # 這是非桌號的文字說明，維持原樣
                         st.caption(cell_text)
 
 # --- 3. 介面內容 ---
@@ -143,6 +147,7 @@ with tab1:
             if not found.empty:
                 first_row = found.iloc[0]
                 st.session_state.focus_table = int(first_row['桌號'])
+                
                 st.markdown(f"""
                     <div class="popup-container">
                         <a href="./" target="_self" class="close-x">×</a>
