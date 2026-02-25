@@ -12,7 +12,7 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 完美 CSS (純淨版) ---
+# --- 🎨 完美 CSS (還原所有間距與樣式) ---
 st.markdown("""
     <style>
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
@@ -31,6 +31,14 @@ st.markdown("""
         font-family: Arial, sans-serif; font-weight: bold; cursor: pointer;
     }
 
+    /* 框內定位按鈕樣式 */
+    .anchor-btn-js {
+        display: inline-block; background-color: #000; color: #fff !important;
+        padding: 15px 30px; border-radius: 10px; border: none;
+        font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
+        cursor: pointer; text-decoration: none;
+    }
+    
     [data-testid="stVerticalBlock"] { gap: 0px !important; }
     [data-testid="stHorizontalBlock"] { margin-top: -12px !important; margin-bottom: -12px !important; }
 
@@ -40,7 +48,6 @@ st.markdown("""
         font-size: 22px !important; margin: 20px 0 !important; width: 100%;
     }
     
-    /* 錨點偏移設定 */
     .target-point { scroll-margin-top: 350px; }
     
     .stButton > button[kind="primary"] {
@@ -50,6 +57,16 @@ st.markdown("""
     
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
+
+    <script>
+    // 跨越 iframe 定位的黑科技
+    function scrollToTable(num) {
+        const target = window.parent.document.getElementById('t_' + num);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+    </script>
     """, unsafe_allow_html=True)
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -92,7 +109,7 @@ def draw_seating_chart(highlighted_tables):
                         table_num = int(float(val))
                         is_active = table_num in highlight_set
                         display_name = f"VIP{table_num}" if table_num in [1,2,3] else str(table_num)
-                        # 設置定位 ID
+                        # 定位點 ID
                         st.markdown(f'<div id="t_{table_num}" class="target-point"></div>', unsafe_allow_html=True)
                         st.button(display_name, key=f"btn_{r_idx}_{c_idx}_{table_num}", type="primary" if is_active else "secondary", use_container_width=True)
                     except:
@@ -117,7 +134,8 @@ with tab1:
                 first_row = found.iloc[0]
                 st.session_state.focus_table = int(first_row['桌號'])
                 
-                # 顯示彈窗
+                # --- 這裡就是按鈕回歸的地方！ ---
+                # 使用 onclick 調用 parent 的 JS 函式，達成無痕捲動
                 st.markdown(f"""
                     <div class="popup-container">
                         <a href="./" target="_self" class="close-x">×</a>
@@ -125,20 +143,11 @@ with tab1:
                         <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
                             您的位置在：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌
                         </p>
+                        <button onclick="window.parent.scrollToTable({st.session_state.focus_table})" class="anchor-btn-js">
+                            👉 點我看座位 (自動定位)
+                        </button>
                     </div>
                     """, unsafe_allow_html=True)
-                
-                # --- 核心：利用一個按鈕點擊後執行 JavaScript 定位，不改網址 ---
-                if st.button(f"👉 點我看座位 (定位至第 {st.session_state.focus_table} 桌)", use_container_width=True):
-                    # 這是黑科技：直接插入 JS 執行，不會出現在 URL
-                    st.components.v1.html(f"""
-                        <script>
-                            var target = window.parent.document.getElementById('t_{st.session_state.focus_table}');
-                            if (target) {{
-                                target.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-                            }}
-                        </script>
-                    """, height=0)
             else:
                 st.session_state.focus_table = None
                 if search_q: st.error("查無此票號")
@@ -147,4 +156,4 @@ with tab1:
 
     draw_seating_chart([st.session_state.focus_table] if st.session_state.focus_table else [])
 
-# Tab2, Tab3 保持不變...
+# Tab 2, 3 ...
