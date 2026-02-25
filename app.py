@@ -11,12 +11,11 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS：維持完美架構並優化細節 ---
+# --- 🎨 核心 CSS 與 自動清理/隱藏腳本 ---
 st.markdown("""
     <style>
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
-    /* 絕對同框容器 */
     .popup-container {
         position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
         width: 380px; background-color: #FFD700; border-radius: 20px;
@@ -35,9 +34,6 @@ st.markdown("""
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
     }
 
-    [data-testid="stVerticalBlock"] { gap: 0px !important; }
-    [data-testid="stHorizontalBlock"] { margin-bottom: -15px !important; }
-
     .label-box-fixed {
         background-color: var(--label-color); color: white; text-align: center; 
         padding: 15px !important; border-radius: 10px; font-weight: bold; 
@@ -51,28 +47,30 @@ st.markdown("""
         border: 3px solid #FBC02D !important; font-weight: bold; transform: scale(1.1);
     }
 
-    /* 解決下載按鈕壓在一起的問題 */
-    .download-section {
-        margin: 20px 0 30px 0 !important;
-        padding-bottom: 20px;
-        border-bottom: 1px solid #eee;
-    }
-
-    /* 強化 Tab 2 欄位顯示，避免被 ID 鎖定遮擋 */
-    [data-testid="stForm"] {
-        background-color: #f9f9f9;
-        padding: 20px;
-        border-radius: 10px;
-    }
+    .download-section { margin: 20px 0 30px 0 !important; padding-bottom: 20px; border-bottom: 1px solid #eee; }
     </style>
 
     <script>
-    // 救命腳本：每 0.5 秒檢查一次網址，只要看到 # 就擦掉，確保分頁不空白且不壓欄位
+    // 智能聯動腳本：點擊看座位後，自動清理網址並讓黃框消失
+    function scrollAndClose(tableId) {
+        // 1. 執行捲動
+        const target = window.parent.document.getElementById('t_' + tableId);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // 2. 0.3 秒後清理網址並觸發頁面刷新（等同於點了叉叉）
+        setTimeout(function() {
+            window.parent.location.href = window.parent.location.pathname;
+        }, 300);
+    }
+    
+    // 定時清理器（保底機制）
     setInterval(function() {
         if (window.location.hash) {
             history.replaceState(null, null, window.location.pathname);
         }
-    }, 500);
+    }, 1000);
     </script>
     """, unsafe_allow_html=True)
 
@@ -102,6 +100,7 @@ with tab1:
             row = found.iloc[0]
             st.session_state.focus_table = int(row['桌號'])
             
+            # 使用 onclick 呼叫我們的智能聯動腳本
             st.markdown(f"""
                 <div class="popup-container">
                     <a href="./" target="_self" class="close-x">×</a>
@@ -109,7 +108,7 @@ with tab1:
                     <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
                         位置：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌
                     </p>
-                    <a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">
+                    <a href="javascript:scrollAndClose({st.session_state.focus_table})" class="inner-btn">
                         👉 點我看座位 (自動捲動)
                     </a>
                 </div>
@@ -140,39 +139,27 @@ with tab1:
 
 with tab2:
     st.subheader("📝 登記與驗證功能")
-    # 分隔單筆與批次
     m_choice = st.radio("模式選擇", ["單筆登記", "連號批次登記", "Excel 批次上傳"], horizontal=True)
-    
     if m_choice == "單筆登記":
         with st.form("single_form"):
             c1, c2, c3 = st.columns(3)
             c1.text_input("姓名")
             c2.number_input("票號", 1, 2000)
             c3.number_input("桌號", 1, 200)
-            st.form_submit_button("執行單筆登記驗證")
-            
+            st.form_submit_button("執行單筆登記")
     elif m_choice == "連號批次登記":
         with st.form("batch_form"):
-            c1, c2 = st.columns(2)
+            c1, b_n = st.columns(2)
             c1.text_input("代表姓名"); c1.number_input("起始票號", 1)
-            c2.text_input("負責人"); c2.number_input("張數", 1)
-            st.form_submit_button("生成批次預覽代碼")
-            
+            b_n.text_input("負責人"); b_n.number_input("張數", 1)
+            st.form_submit_button("生成預覽")
     elif m_choice == "Excel 批次上傳":
         st.file_uploader("選擇檔案 (.xlsx)", type=["xlsx"])
 
 with tab3:
     st.subheader("📊 數據中心")
-    
-    # 使用特殊的 div 包裹下載按鈕以增加間距
     st.markdown('<div class="download-section">', unsafe_allow_html=True)
     export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(
-        label="📥 下載最新賓客資料庫",
-        data=export_data,
-        file_name="千人宴資料總表.csv",
-        mime="text/csv"
-    )
+    st.download_button(label="📥 下載最新資料庫", data=export_data, file_name="千人宴資料庫.csv", mime="text/csv")
     st.markdown('</div>', unsafe_allow_html=True)
-    
     st.dataframe(df_guest, use_container_width=True)
