@@ -11,38 +11,20 @@ st.set_page_config(page_title="千人宴桌次管理系統", page_icon="🎟️"
 
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
-if 'do_scroll' not in st.session_state:
-    st.session_state.do_scroll = False
 
-# --- 🎨 核心 CSS：手術級精確對齊 ---
+# --- 🎨 莊重感 CSS ---
 st.markdown("""
     <style>
-    /* 搜尋區域對齊 */
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
-    /* 黃色小框：維持原本樣式 */
-    .popup-container {
-        position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
-        width: 380px; background-color: #FFD700; border-radius: 20px;
-        box-shadow: 0px 20px 60px rgba(0,0,0,0.5); z-index: 999;
-        text-align: center; border: 4px solid #DAA520; padding: 40px 20px 80px 20px;
-    }
-    
-    /* 關鍵修正：強迫「點我看座位」按鈕移入框內 */
-    div[data-testid="stVerticalBlock"] > div:has(button[key="scroll_btn"]) {
-        position: fixed !important;
-        top: 55% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        z-index: 1000 !important;
-        width: 300px !important;
+    /* 搜尋結果容器 (取代浮動框，確保絕對不跑版) */
+    .result-container {
+        background-color: #FFD700; border-radius: 20px;
+        box-shadow: 0px 10px 30px rgba(0,0,0,0.1);
+        text-align: center; border: 4px solid #DAA520; 
+        padding: 30px 20px; margin-bottom: 20px;
     }
 
-    .close-x {
-        position: absolute; top: 15px; right: 20px;
-        font-size: 30px; color: #555; text-decoration: none; font-weight: bold; cursor: pointer;
-    }
-    
     [data-testid="stVerticalBlock"] { gap: 0px !important; }
     [data-testid="stHorizontalBlock"] { margin-bottom: -15px !important; }
 
@@ -87,29 +69,34 @@ with tab1:
             row = found.iloc[0]
             st.session_state.focus_table = int(row['桌號'])
             
-            # 黃色彈窗 HTML
+            # 使用結果卡片 (取代浮動框，解決按鈕跑掉與頁面空白問題)
             st.markdown(f"""
-                <div class="popup-container">
-                    <a href="./" target="_self" class="close-x">×</a>
+                <div class="result-container">
                     <h2 style="color: black; margin: 0;">👋 {row['姓名']} 貴賓</h2>
-                    <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
+                    <p style="font-size: 26px; color: #d32f2f; font-weight: bold; margin: 15px 0;">
                         位置：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
             
-            # 原生按鈕 (透過 CSS 強制歸位)
-            if st.button("👉 點我看座位 (自動捲動)", key="scroll_btn", use_container_width=True):
-                st.session_state.do_scroll = True
-
-            if st.session_state.do_scroll:
-                components.html(f"""<script>window.parent.document.getElementById('t_{st.session_state.focus_table}').scrollIntoView({{behavior: 'smooth', block: 'start'}});</script>""", height=0)
-                st.session_state.do_scroll = False 
+            # 定位按鈕緊跟在下方，看起來就在同一個區塊
+            c1, c2, c3 = st.columns([1, 2, 1])
+            with c2:
+                if st.button("👉 點我看座位 (自動捲動)", key="scroll_btn", use_container_width=True):
+                    components.html(f"""
+                        <script>
+                            window.parent.document.getElementById('t_{st.session_state.focus_table}').scrollIntoView({{behavior: 'smooth', block: 'start'}});
+                        </script>
+                    """, height=0)
+                if st.button("✖️ 清除搜尋", key="clear_btn", use_container_width=True):
+                    st.session_state.focus_table = None
+                    st.rerun()
 
     # 繪製地圖
     if os.path.exists(LAYOUT_FILE):
         df_map = pd.read_csv(LAYOUT_FILE, header=None)
         num_cols = len(df_map.columns)
+        st.markdown("### 🏟️ 場地實景佈局圖")
         for r_idx, row in df_map.iterrows():
             row_content = "".join([str(v) for v in row if not pd.isna(v)])
             if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
@@ -137,13 +124,14 @@ with tab2:
             s_name = c1.text_input("姓名")
             s_ticket = c2.number_input("票號", 1, 2000)
             s_table = c3.number_input("預計桌號", 1, 200)
-            st.form_submit_button("執行單筆驗證")
+            st.form_submit_button("執行單筆登記驗證")
     elif reg_mode == "連號批次登記":
         with st.form("batch_form"):
             b_name = st.text_input("代表姓名")
             b_start = st.number_input("起始票號", 1)
             b_count = st.number_input("張數", 1)
-            st.form_submit_button("批次生成驗證")
+            b_table = st.number_input("預計桌號", 1)
+            st.form_submit_button("批次生成驗證代碼")
 
 with tab3:
     st.subheader("📊 數據中心")
