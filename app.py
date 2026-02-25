@@ -12,16 +12,25 @@ st.set_page_config(page_title="千人宴桌次實景管理系統", page_icon="�
 # 初始化 Session State
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
+if 'show_popup' not in st.session_state:
+    st.session_state.show_popup = False
 
-# 自定義 CSS
+# 自定義 CSS (增加關閉按鈕樣式)
 st.markdown("""
     <style>
     .floating-info {
-        position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%);
-        background-color: #FFD700; padding: 25px; border-radius: 15px;
-        box-shadow: 0px 10px 30px rgba(0,0,0,0.3); z-index: 9999;
-        text-align: center; border: 3px solid #DAA520; animation: fadeIn 0.5s;
+        position: fixed; top: 25%; left: 50%; transform: translate(-50%, -50%);
+        background-color: #FFD700; padding: 30px; border-radius: 15px;
+        box-shadow: 0px 15px 40px rgba(0,0,0,0.4); z-index: 9999;
+        text-align: center; border: 3px solid #DAA520; animation: fadeIn 0.4s;
+        min-width: 300px;
     }
+    .close-btn {
+        position: absolute; top: 10px; right: 15px;
+        font-size: 24px; cursor: pointer; color: #555; font-weight: bold;
+        text-decoration: none;
+    }
+    .close-btn:hover { color: #000; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .table-anchor { scroll-margin-top: 250px; }
     .stButton > button[kind="primary"] {
@@ -76,20 +85,46 @@ st.title("🎟️ 千人宴桌次實景管理系統")
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
-    search_q = st.text_input("🔍 搜尋姓名、電話或票號：", key="search_main")
+    # 建立搜尋欄與清除按鈕的排列
+    col_search, col_clear = st.columns([4, 1])
+    with col_search:
+        search_q = st.text_input("🔍 搜尋姓名、電話或票號：", key="search_main")
+    with col_clear:
+        st.write(" ") # 對齊
+        if st.button("❌ 清除查詢", use_container_width=True):
+            st.session_state.focus_table = None
+            st.session_state.show_popup = False
+            st.rerun()
+
     if search_q:
         mask = df_guest.astype(str).apply(lambda x: x.str.contains(search_q, case=False)).any(axis=1)
         found = df_guest[mask]
         if not found.empty:
             first_row = found.iloc[0]
-            target_t = int(first_row['桌號'])
-            st.markdown(f"""<div class="floating-info"><h2 style="color: black;">👋 {first_row['姓名']} 貴賓</h2>
-                <p style="font-size: 24px; color: #d32f2f; font-weight: bold;">您的位置在：第 {target_t} 桌</p>
-                <a href="#table_{target_t}" target="_self"><button style="background-color: #000; color: #fff; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;">👉 點我看座位 (自動定位)</button></a></div>""", unsafe_allow_html=True)
-            st.session_state.focus_table = target_t
+            st.session_state.focus_table = int(first_row['桌號'])
+            st.session_state.show_popup = True
+            
+            # 顯眼浮動視窗 (包含手動關閉按鈕 與 自動觸發關閉的連結)
+            if st.session_state.show_popup:
+                st.markdown(f"""
+                    <div class="floating-info">
+                        <a href="javascript:window.location.reload()" class="close-btn">×</a>
+                        <h2 style="color: black; margin-top: 10px;">👋 {first_row['姓名']} 貴賓</h2>
+                        <p style="font-size: 26px; color: #d32f2f; font-weight: bold; margin: 15px 0;">
+                            您的位置在：第 {st.session_state.focus_table} 桌
+                        </p>
+                        <a href="#table_{st.session_state.focus_table}" target="_self" style="text-decoration: none;">
+                            <button style="background-color: #000; color: #fff; padding: 12px 25px; border-radius: 8px; border: none; cursor: pointer; font-size: 18px; font-weight: bold;">
+                                👉 點我看座位 (自動定位)
+                            </button>
+                        </a>
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">(點擊後請向下滑動至黃色桌號)</p>
+                    </div>
+                    """, unsafe_allow_html=True)
         else:
             st.session_state.focus_table = None
-            st.error("查無資訊")
+            st.error("查無資訊，請重新輸入")
+
     draw_seating_chart([st.session_state.focus_table] if st.session_state.focus_table else [])
 
 with tab2:
@@ -107,16 +142,14 @@ with tab2:
                 ticket = st.number_input("票號", 1, 2000, 1)
             with c3:
                 table = st.number_input("預計桌號", 1, 200, 1)
-            
             if st.form_submit_button("執行單筆驗證"):
-                if not name: st.error("請輸入姓名")
-                elif not seller: st.error("請輸入售票者")
+                if not name or not seller: st.error("⚠️ 姓名與售票者為必填")
                 else:
                     existing = set(df_guest['票號'].values)
-                    if ticket in existing: st.error(f"❌ 票號 {ticket} 已被登記！")
+                    if ticket in existing: st.error(f"❌ 票號 {ticket} 已重複登記")
                     else:
                         st.balloons()
-                        st.success(f"✅ 驗證通過！請手動填入雲端表：\n{name} / {phone} / {ticket} / {seller} / {table}")
+                        st.success(f"✅ 驗證通過！格式：{name} / {phone} / {ticket} / {seller} / {table}")
 
     elif mode == "連號批次登記":
         with st.form("batch_form"):
@@ -127,24 +160,21 @@ with tab2:
             ca, cb = c2.columns(2)
             start_t = ca.number_input("起始票號", 1, 2000, 1)
             count_t = cb.number_input("張數", 1, 100, 10)
-            table_b = st.number_input("統一安排桌號 (可事後手動微調)", 1, 200, 1)
-            
+            table_b = st.number_input("統一安排桌號", 1, 200, 1)
             if st.form_submit_button("執行連號驗證"):
                 t_range = range(int(start_t), int(start_t) + int(count_t))
                 existing = set(df_guest['票號'].values)
                 conflicts = [t for t in t_range if t in existing]
-                if conflicts: st.error(f"❌ 衝突！票號 {conflicts} 已登記")
+                if conflicts: st.error(f"❌ 衝突！票號 {conflicts} 已存在")
                 else:
-                    st.success("🎉 驗證成功！請複製以下內容至 Google Sheets：")
-                    rows = [f"{name_b}\t{phone_b}\t{t}\t{seller_b}\t{table_b}" for t in t_range]
-                    st.code("\n".join(rows))
+                    st.success("🎉 驗證成功！請複製內容：")
+                    st.code("\n".join([f"{name_b}\t{phone_b}\t{t}\t{seller_b}\t{table_b}" for t in t_range]))
 
     else:
-        up_file = st.file_uploader("上傳 Excel", type=["xlsx"])
-        if up_file: st.info("Excel 已讀取，請執行資料比對")
+        st.file_uploader("上傳 Excel", type=["xlsx"])
 
 with tab3:
     st.subheader("📊 數據中心")
     csv = df_guest.to_csv(index=False).encode('utf-8-sig')
-    st.download_button("📥 下載目前資料庫 (CSV)", csv, "backup.csv", "text/csv")
+    st.download_button("📥 下載目前資料庫 (CSV)", csv, "千人宴總表.csv", "text/csv")
     st.dataframe(df_guest, use_container_width=True)
