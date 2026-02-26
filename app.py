@@ -11,11 +11,18 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS 與 網址清理腳本 (維持完美版) ---
+# --- 🎨 核心 CSS 與 網址清理腳本 ---
 st.markdown("""
     <style>
+    /* 搜尋按鈕對齊 */
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
+    /* 🚀 關鍵微調：讓搜尋區域與地圖拉開間距 */
+    [data-testid="stHorizontalBlock"]:has(input[key="search_main"]) {
+        margin-bottom: 50px !important; 
+    }
+
+    /* 絕對同框容器 */
     .popup-container {
         position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
         width: 380px; background-color: #FFD700; border-radius: 20px;
@@ -34,6 +41,7 @@ st.markdown("""
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
     }
 
+    /* 地圖區間距保持壓縮，但與搜尋框隔離 */
     [data-testid="stVerticalBlock"] { gap: 0px !important; }
     [data-testid="stHorizontalBlock"] { margin-bottom: -15px !important; }
 
@@ -82,10 +90,10 @@ df_guest = load_data()
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
+    # 搜尋框與按鈕
     c_in, c_bt = st.columns([4, 1])
     search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
     
-    # 執行查詢
     if search_q:
         mask = (df_guest['票號_str'].str.contains(search_q, na=False)) | (df_guest['姓名'].str.contains(search_q, na=False))
         found = df_guest[mask]
@@ -94,7 +102,6 @@ with tab1:
             row = found.iloc[0]
             st.session_state.focus_table = int(row['桌號'])
             
-            # 顯示完美同框黃框
             st.markdown(f"""
                 <div class="popup-container">
                     <a href="./" target="_self" class="close-x">×</a>
@@ -108,12 +115,10 @@ with tab1:
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            # --- 修正處：查無資料時的動作 ---
-            st.session_state.focus_table = None # 清除之前高亮的桌子
-            st.error(f"❌ 查無資料：找不到與「{search_q}」相關的票號或姓名。")
-            st.warning("提示：請確認輸入是否正確，或至數據中心確認資料庫內容。")
+            st.session_state.focus_table = None
+            st.error(f"❌ 查無資料：找不到與「{search_q}」相關的內容。")
 
-    # 繪製地圖 (不變)
+    # 繪製地圖
     if os.path.exists(LAYOUT_FILE):
         df_map = pd.read_csv(LAYOUT_FILE, header=None)
         num_cols = len(df_map.columns)
