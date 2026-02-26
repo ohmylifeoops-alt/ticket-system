@@ -1,4 +1,5 @@
 import streamlit as st
+import pd as pd # 修正為常用的 pandas 簡寫以確保穩定
 import pandas as pd
 import os
 
@@ -11,15 +12,15 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS 與 網址清理腳本 ---
+# --- 🎨 核心 CSS：針對搜尋框容器強制推開間距 ---
 st.markdown("""
     <style>
     /* 搜尋按鈕對齊 */
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
-    /* 🚀 關鍵微調：讓搜尋區域與地圖拉開間距 */
-    [data-testid="stHorizontalBlock"]:has(input[key="search_main"]) {
-        margin-bottom: 50px !important; 
+    /* 🚀 關鍵修正：直接針對搜尋輸入框的父容器增加底部間距 */
+    div[data-testid="stVerticalBlock"] > div:has(input[key="search_main"]) {
+        margin-bottom: 60px !important; 
     }
 
     /* 絕對同框容器 */
@@ -41,7 +42,7 @@ st.markdown("""
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
     }
 
-    /* 地圖區間距保持壓縮，但與搜尋框隔離 */
+    /* 地圖區間距保持壓縮 */
     [data-testid="stVerticalBlock"] { gap: 0px !important; }
     [data-testid="stHorizontalBlock"] { margin-bottom: -15px !important; }
 
@@ -90,8 +91,8 @@ df_guest = load_data()
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
-    # 搜尋框與按鈕
     c_in, c_bt = st.columns([4, 1])
+    # 這裡的 key="search_main" 是 CSS 定位的關鍵
     search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
     
     if search_q:
@@ -109,16 +110,15 @@ with tab1:
                     <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
                         位置：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌
                     </p>
-                    <a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">
+                    <a href="#t_{st.session_table if 'focus_table' not in locals() else st.session_state.focus_table}" target="_self" class="inner-btn">
                         👉 點我看座位 (自動捲動)
                     </a>
                 </div>
                 """, unsafe_allow_html=True)
         else:
             st.session_state.focus_table = None
-            st.error(f"❌ 查無資料：找不到與「{search_q}」相關的內容。")
+            st.error(f"❌ 查無資料。")
 
-    # 繪製地圖
     if os.path.exists(LAYOUT_FILE):
         df_map = pd.read_csv(LAYOUT_FILE, header=None)
         num_cols = len(df_map.columns)
@@ -155,7 +155,7 @@ with tab2:
             c1, c2 = st.columns(2)
             c1.text_input("代表姓名"); c1.number_input("起始票號", 1)
             c2.text_input("負責人"); c2.number_input("張數", 1)
-            st.form_submit_button("生成批次預覽代碼")
+            st.form_submit_button("生成預覽")
     elif m_choice == "Excel 批次上傳":
         st.file_uploader("選擇檔案 (.xlsx)", type=["xlsx"])
 
@@ -163,6 +163,6 @@ with tab3:
     st.subheader("📊 數據中心")
     st.markdown('<div class="download-section">', unsafe_allow_html=True)
     export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(label="📥 下載最新賓客資料庫", data=export_data, file_name="千人宴最新總表.csv", mime="text/csv")
+    st.download_button(label="📥 下載最新賓客資料庫", data=export_data, file_name="千人宴總表.csv", mime="text/csv")
     st.markdown('</div>', unsafe_allow_html=True)
     st.dataframe(df_guest, use_container_width=True)
