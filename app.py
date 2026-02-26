@@ -67,8 +67,10 @@ with tab1:
     search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
     
     if search_q:
-        # 第一層：優先檢查彩蛋
-        if search_q == "陳聰發":
+        # --- 🥚 優先檢查彩蛋暗號 ---
+        if search_q in ["靜好大仙", "劉來好"]:
+            st.markdown('<div class="popup-container" style="background-color: #FFF9C4; border-color: #FBC02D;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold; color: #424242; line-height: 1.6;">她跟馬經理都在這裡<br>陪著大家</p></div>', unsafe_allow_html=True)
+        elif search_q == "陳聰發":
             st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 陳聰發</h2><p style="font-size: 24px; font-weight: bold;">他在旁邊<br>一直幫我們加油喔</p></div>', unsafe_allow_html=True)
         elif search_q == "馬慧斌":
             st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 馬慧斌</h2><p style="font-size: 24px; font-weight: bold;">他在現場喔！<br>你有看到嗎？</p></div>', unsafe_allow_html=True)
@@ -87,7 +89,7 @@ with tab1:
             st.balloons()
             st.markdown('<div class="popup-container" style="background-color: #E8F5E9; border-color: #4CAF50;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #2E7D32;">🎉 圓滿成功</h2><p style="font-size: 20px; font-weight: bold; color: #1B5E20;">預祝千人宴大會圓滿成功，<br>萬事順意！</p></div>', unsafe_allow_html=True)
         
-        # 第二層：如果不是彩蛋，才搜尋資料庫
+        # --- 正常搜尋邏輯 ---
         else:
             mask = (df_guest['票號_str'].str.contains(search_q, na=False)) | (df_guest['姓名'].str.contains(search_q, na=False))
             found = df_guest[mask]
@@ -135,15 +137,4 @@ with tab2:
             st.form_submit_button("執行單筆登記")
     elif m_choice == "連號批次登記":
         with st.form("b"):
-            c1, c2 = st.columns(2)
-            c1.text_input("代表姓名"); c2.number_input("張數", 1)
-            st.form_submit_button("生成預覽代碼")
-    elif m_choice == "Excel 批次上傳":
-        st.file_uploader("選擇 Excel", type=["xlsx"])
-
-with tab3:
-    st.markdown('<div class="download-section">', unsafe_allow_html=True)
-    export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(label="📥 下載最新資料庫", data=export_data, file_name="千人宴總表.csv")
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.dataframe(df_guest, use_container_width=True)
+            c
