@@ -11,10 +11,9 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS：移除會導致跑掉的間距設定 ---
+# --- 🎨 核心 CSS：確保架構緊湊，彩蛋樣式統一 ---
 st.markdown("""
     <style>
-    /* 搜尋按鈕對齊 */
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
     /* 完美同框黃框容器 */
@@ -36,7 +35,7 @@ st.markdown("""
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
     }
 
-    /* 核心架構：保持緊湊 */
+    /* 保持緊湊架構 */
     [data-testid="stVerticalBlock"] { gap: 0px !important; }
     [data-testid="stHorizontalBlock"] { margin-bottom: -15px !important; }
 
@@ -48,7 +47,6 @@ st.markdown("""
     
     .target-spot { scroll-margin-top: 350px; }
     
-    /* 亮黃色選中桌子 */
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
         border: 3px solid #FBC02D !important; font-weight: bold; transform: scale(1.1);
@@ -60,7 +58,6 @@ st.markdown("""
         border-bottom: 1px solid #eee;
     }
 
-    /* CSV 空行產生的物理高度 */
     .spacer-row { height: 45px; width: 100%; }
     </style>
 
@@ -93,14 +90,24 @@ with tab1:
     search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
     
     if search_q:
-        # 催淚彩蛋
+        # --- 🥚 彩蛋邏輯擴充區 ---
         if search_q == "陳聰發":
             st.markdown(f'<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 陳聰發</h2><p style="font-size: 24px; font-weight: bold;">他在旁邊<br>一直幫我們加油喔</p></div>', unsafe_allow_html=True)
         elif search_q == "馬慧斌":
             st.markdown(f'<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 馬慧斌</h2><p style="font-size: 24px; font-weight: bold;">他在現場喔！<br>你有看到嗎？</p></div>', unsafe_allow_html=True)
+        elif search_q == "黃棋龍":
+            st.balloons()
+            st.markdown(f'<div class="popup-container" style="background-color: #FFFDE7;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #FBC02D;">✨ 黃棋龍</h2><p style="font-size: 32px; font-weight: bold; color: #E65100;">頑張って！</p></div>', unsafe_allow_html=True)
+        elif search_q == "郭和錦":
+            st.markdown(f'<div class="popup-container" style="background-color: #FCE4EC;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #EC407A;">🌸 郭和錦</h2><p style="font-size: 26px; font-weight: bold; color: #880E4F;">賴經理加油！</p></div>', unsafe_allow_html=True)
         elif search_q == "辛苦了":
             st.snow()
             st.markdown(f'<div class="popup-container" style="background-color: #E3F2FD;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #1565C0;">💙 致 工作人員</h2><p style="font-size: 20px; font-weight: bold;">各位工作人員辛苦了，<br>這場「千人宴」因為有你們而完美！</p></div>', unsafe_allow_html=True)
+        elif search_q == "傳承":
+            st.balloons()
+            st.markdown(f'<div class="popup-container" style="background-color: #F1F8E9;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #33691E;">🌱 傳承與希望</h2><p style="font-size: 20px; font-weight: bold;">千人宴是一場聚會，<br>更是一份文化的傳遞。</p></div>', unsafe_allow_html=True)
+        
+        # --- 正常搜尋邏輯 ---
         else:
             mask = (df_guest['票號_str'].str.contains(search_q, na=False)) | (df_guest['姓名'].str.contains(search_q, na=False))
             found = df_guest[mask]
@@ -112,11 +119,11 @@ with tab1:
                 st.session_state.focus_table = None
                 st.error("❌ 查無資料。")
 
+    # 地圖繪製
     if os.path.exists(LAYOUT_FILE):
         df_map = pd.read_csv(LAYOUT_FILE, header=None, skip_blank_lines=False)
         num_cols = len(df_map.columns)
         for r_idx, row in df_map.iterrows():
-            # 偵測 CSV 空行並插入物理間距
             if row.isnull().all() or "".join([str(v) for v in row if not pd.isna(v)]).strip() == "":
                 st.markdown('<div class="spacer-row"></div>', unsafe_allow_html=True)
                 continue
@@ -137,13 +144,14 @@ with tab1:
                         except:
                             st.caption(cell_text)
 
+# Tab 2, 3 功能維持不變
 with tab2:
     st.subheader("📝 登記與驗證功能")
     m_choice = st.radio("模式選擇", ["單筆登記", "連號批次登記", "Excel 批次上傳"], horizontal=True)
     if m_choice == "單筆登記":
         with st.form("single_form"):
             c1, c2, c3 = st.columns(3)
-            c1.text_input("姓名"); c2.number_input("票號", 1, 2000); c3.number_input("桌號", 1, 200)
+            c1.text_input("姓名"); c2.number_input("票號", 1); c3.number_input("桌號", 1)
             st.form_submit_button("執行單筆登記")
     elif m_choice == "連號批次登記":
         with st.form("batch_form"):
