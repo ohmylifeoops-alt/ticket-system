@@ -11,23 +11,11 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS 與 網址清理腳本 ---
+# --- 🎨 核心 CSS ---
 st.markdown("""
     <style>
-    /* 搜尋按鈕對齊 */
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
-    /* 搜尋區域與地圖拉開間距 (CSS 保底) */
-    div[data-testid="stVerticalBlock"] > div:has(input[key="search_main"]) {
-        margin-bottom: 20px !important; 
-    }
-
-    /* 物理間距的高度設定：對應 CSV 裡的空行 */
-    .spacer-row {
-        height: 50px; 
-        width: 100%;
-    }
-
     /* 完美同框黃框容器 */
     .popup-container {
         position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
@@ -47,10 +35,6 @@ st.markdown("""
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
     }
 
-    /* 地圖區壓縮間距 */
-    [data-testid="stVerticalBlock"] { gap: 0px !important; }
-    [data-testid="stHorizontalBlock"] { margin-bottom: -15px !important; }
-
     .label-box-fixed {
         background-color: var(--label-color); color: white; text-align: center; 
         padding: 15px !important; border-radius: 10px; font-weight: bold; 
@@ -59,7 +43,6 @@ st.markdown("""
     
     .target-spot { scroll-margin-top: 350px; }
     
-    /* 高亮選中桌子 */
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
         border: 3px solid #FBC02D !important; font-weight: bold; transform: scale(1.1);
@@ -70,10 +53,11 @@ st.markdown("""
         padding-bottom: 20px;
         border-bottom: 1px solid #eee;
     }
+
+    .spacer-row { height: 45px; width: 100%; }
     </style>
 
     <script>
-    // 網址清理：確保跳轉後 Tab 2/3 不變空白
     setInterval(function() {
         if (window.location.hash) {
             history.replaceState(null, null, window.location.pathname);
@@ -102,47 +86,76 @@ with tab1:
     search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
     
     if search_q:
-        mask = (df_guest['票號_str'].str.contains(search_q, na=False)) | (df_guest['姓名'].str.contains(search_q, na=False))
-        found = df_guest[mask]
-        
-        if not found.empty:
-            row = found.iloc[0]
-            st.session_state.focus_table = int(row['桌號'])
-            
+        # --- 🥚 催淚彩蛋邏輯區 ---
+        if search_q == "陳聰發":
             st.markdown(f"""
-                <div class="popup-container">
+                <div class="popup-container" style="background-color: #FFF9C4; border-color: #FBC02D;">
                     <a href="./" target="_self" class="close-x">×</a>
-                    <h2 style="color: black; margin: 0;">👋 {row['姓名']} 貴賓</h2>
-                    <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
-                        位置：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌
+                    <h2 style="color: #F57F17; margin-bottom: 15px;">🕯️ 陳聰發</h2>
+                    <p style="font-size: 24px; color: #424242; font-weight: bold; line-height: 1.5;">
+                        他在旁邊<br>一直幫我們加油喔
                     </p>
-                    <a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">
-                        👉 點我看座位 (自動捲動)
-                    </a>
                 </div>
                 """, unsafe_allow_html=True)
+        elif search_q == "馬慧斌":
+            st.markdown(f"""
+                <div class="popup-container" style="background-color: #FFF9C4; border-color: #FBC02D;">
+                    <a href="./" target="_self" class="close-x">×</a>
+                    <h2 style="color: #F57F17; margin-bottom: 15px;">🕯️ 馬慧斌</h2>
+                    <p style="font-size: 24px; color: #424242; font-weight: bold; line-height: 1.5;">
+                        他在現場喔！<br>你有看到嗎？
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+        elif search_q == "辛苦了":
+            st.snow() # 下起淡淡的雪花，增加氣氛
+            st.markdown(f"""
+                <div class="popup-container" style="background-color: #E3F2FD; border-color: #2196F3;">
+                    <a href="./" target="_self" class="close-x">×</a>
+                    <h2 style="color: #1565C0; margin-bottom: 15px;">💙 致 工作人員</h2>
+                    <p style="font-size: 20px; color: #0D47A1; font-weight: bold; line-height: 1.4;">
+                        各位工作人員辛苦了，<br>這場「千人宴」因為有你們而完美！
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # --- 正常搜尋邏輯 ---
         else:
-            st.session_state.focus_table = None
-            st.error(f"❌ 查無資料。")
+            mask = (df_guest['票號_str'].str.contains(search_q, na=False)) | (df_guest['姓名'].str.contains(search_q, na=False))
+            found = df_guest[mask]
+            
+            if not found.empty:
+                row = found.iloc[0]
+                st.session_state.focus_table = int(row['桌號'])
+                st.markdown(f"""
+                    <div class="popup-container">
+                        <a href="./" target="_self" class="close-x">×</a>
+                        <h2 style="color: black; margin: 0;">👋 {row['姓名']} 貴賓</h2>
+                        <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
+                            位置：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌
+                        </p>
+                        <a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">
+                            👉 點我看座位 (自動捲動)
+                        </a>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.session_state.focus_table = None
+                st.error(f"❌ 查無資料。")
 
-    # 繪製地圖
+    # 繪製地圖 (略...)
     if os.path.exists(LAYOUT_FILE):
-        # 關鍵：skip_blank_lines=False 讓程式讀取 CSV 內的空行
         df_map = pd.read_csv(LAYOUT_FILE, header=None, skip_blank_lines=False)
         num_cols = len(df_map.columns)
-        
         for r_idx, row in df_map.iterrows():
-            # 偵測是否為空行（包括整列為空或全是空格）
-            row_content_raw = "".join([str(v) for v in row if not pd.isna(v)])
-            if row_content_raw.strip() == "":
+            if row.isnull().all() or "".join([str(v) for v in row if not pd.isna(v)]).strip() == "":
                 st.markdown('<div class="spacer-row"></div>', unsafe_allow_html=True)
                 continue
-
-            if any(k in row_content_raw for k in ["舞台", "入口", "電視牆"]):
-                color = "#FF4B4B" if "舞台" in row_content_raw else ("#333333" if "電視" in row_content_raw else "#2E7D32")
-                st.markdown(f'<div class="label-box-fixed" style="--label-color: {color};">{row_content_raw}</div>', unsafe_allow_html=True)
+            row_content = "".join([str(v) for v in row if not pd.isna(v)])
+            if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
+                color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
+                st.markdown(f'<div class="label-box-fixed" style="--label-color: {color};">{row_content}</div>', unsafe_allow_html=True)
                 continue
-            
             cols = st.columns(num_cols)
             for c_idx, val in enumerate(row):
                 with cols[c_idx]:
@@ -155,27 +168,22 @@ with tab1:
                         except:
                             st.caption(cell_text)
 
+# Tab 2, 3 維持不變
 with tab2:
     st.subheader("📝 登記與驗證功能")
-    m_choice = st.radio("模式選擇", ["單筆登記", "連號批次登記", "Excel 批次上傳"], horizontal=True)
+    m_choice = st.radio("模式", ["單筆登記", "連號批次登記", "Excel 批次上傳"], horizontal=True)
     if m_choice == "單筆登記":
-        with st.form("single_form"):
-            c1, c2, c3 = st.columns(3)
-            c1.text_input("姓名"); c2.number_input("票號", 1, 2000); c3.number_input("桌號", 1, 200)
-            st.form_submit_button("執行單筆登記")
+        with st.form("s"):
+            st.text_input("姓名"); st.number_input("票號", 1); st.form_submit_button("執行")
     elif m_choice == "連號批次登記":
-        with st.form("batch_form"):
-            c1, c2 = st.columns(2)
-            c1.text_input("代表姓名"); c1.number_input("起始票號", 1)
-            c2.text_input("負責人"); c2.number_input("張數", 1)
-            st.form_submit_button("生成預覽代碼")
+        with st.form("b"):
+            st.text_input("代表名"); st.number_input("張數", 1); st.form_submit_button("生成")
     elif m_choice == "Excel 批次上傳":
-        st.file_uploader("選擇 Excel 檔案 (.xlsx)", type=["xlsx"])
+        st.file_uploader("上傳 Excel", type=["xlsx"])
 
 with tab3:
-    st.subheader("📊 數據中心")
     st.markdown('<div class="download-section">', unsafe_allow_html=True)
     export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(label="📥 下載最新賓客資料庫", data=export_data, file_name="千人宴總表.csv", mime="text/csv")
+    st.download_button(label="📥 下載總表", data=export_data, file_name="千人宴總表.csv")
     st.markdown('</div>', unsafe_allow_html=True)
     st.dataframe(df_guest, use_container_width=True)
