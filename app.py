@@ -1,5 +1,4 @@
 import streamlit as st
-import pd as pd # 修正為常用的 pandas 簡寫以確保穩定
 import pandas as pd
 import os
 
@@ -12,18 +11,18 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS：針對搜尋框容器強制推開間距 ---
+# --- 🎨 核心 CSS 與 網址清理腳本 ---
 st.markdown("""
     <style>
     /* 搜尋按鈕對齊 */
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
-    /* 🚀 關鍵修正：直接針對搜尋輸入框的父容器增加底部間距 */
+    /* 搜尋區域與地圖拉開間距 (使用更穩定的選擇器) */
     div[data-testid="stVerticalBlock"] > div:has(input[key="search_main"]) {
         margin-bottom: 60px !important; 
     }
 
-    /* 絕對同框容器 */
+    /* 完美同框黃框容器 */
     .popup-container {
         position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
         width: 380px; background-color: #FFD700; border-radius: 20px;
@@ -36,13 +35,14 @@ st.markdown("""
         font-size: 30px; color: #555; text-decoration: none; font-weight: bold;
     }
 
+    /* 框內鎖定黑按鈕 */
     .inner-btn {
         display: inline-block; background-color: #000; color: #fff !important;
         padding: 15px 30px; border-radius: 12px; text-decoration: none;
         font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
     }
 
-    /* 地圖區間距保持壓縮 */
+    /* 地圖區壓縮間距 */
     [data-testid="stVerticalBlock"] { gap: 0px !important; }
     [data-testid="stHorizontalBlock"] { margin-bottom: -15px !important; }
 
@@ -54,11 +54,13 @@ st.markdown("""
     
     .target-spot { scroll-margin-top: 350px; }
     
+    /* 亮黃色選中桌子 */
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
         border: 3px solid #FBC02D !important; font-weight: bold; transform: scale(1.1);
     }
 
+    /* 下載按鈕間距優化 */
     .download-section {
         margin: 20px 0 30px 0 !important;
         padding-bottom: 20px;
@@ -67,6 +69,7 @@ st.markdown("""
     </style>
 
     <script>
+    // 網址清潔工：確保 Tab 2/3 永遠不會變空白
     setInterval(function() {
         if (window.location.hash) {
             history.replaceState(null, null, window.location.pathname);
@@ -92,7 +95,6 @@ tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "
 
 with tab1:
     c_in, c_bt = st.columns([4, 1])
-    # 這裡的 key="search_main" 是 CSS 定位的關鍵
     search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
     
     if search_q:
@@ -103,6 +105,7 @@ with tab1:
             row = found.iloc[0]
             st.session_state.focus_table = int(row['桌號'])
             
+            # 絕對同框黃框
             st.markdown(f"""
                 <div class="popup-container">
                     <a href="./" target="_self" class="close-x">×</a>
@@ -110,15 +113,17 @@ with tab1:
                     <p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">
                         位置：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌
                     </p>
-                    <a href="#t_{st.session_table if 'focus_table' not in locals() else st.session_state.focus_table}" target="_self" class="inner-btn">
+                    <a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">
                         👉 點我看座位 (自動捲動)
                     </a>
                 </div>
                 """, unsafe_allow_html=True)
         else:
+            # 搜尋不到時的明確反饋
             st.session_state.focus_table = None
-            st.error(f"❌ 查無資料。")
+            st.error(f"❌ 查無資料：找不到與「{search_q}」相關的內容。")
 
+    # 繪製地圖 (原封不動)
     if os.path.exists(LAYOUT_FILE):
         df_map = pd.read_csv(LAYOUT_FILE, header=None)
         num_cols = len(df_map.columns)
@@ -157,7 +162,7 @@ with tab2:
             c2.text_input("負責人"); c2.number_input("張數", 1)
             st.form_submit_button("生成預覽")
     elif m_choice == "Excel 批次上傳":
-        st.file_uploader("選擇檔案 (.xlsx)", type=["xlsx"])
+        st.file_uploader("選擇 Excel 檔案 (.xlsx)", type=["xlsx"])
 
 with tab3:
     st.subheader("📊 數據中心")
