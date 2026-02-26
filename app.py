@@ -11,12 +11,11 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS 與 網址清理腳本 ---
+# --- 🎨 核心 CSS 與 網址清理腳本 (維持完美版) ---
 st.markdown("""
     <style>
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
-    /* 絕對同框容器 */
     .popup-container {
         position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
         width: 380px; background-color: #FFD700; border-radius: 20px;
@@ -51,7 +50,6 @@ st.markdown("""
         border: 3px solid #FBC02D !important; font-weight: bold; transform: scale(1.1);
     }
 
-    /* 下載按鈕間距優化 */
     .download-section {
         margin: 20px 0 30px 0 !important;
         padding-bottom: 20px;
@@ -60,7 +58,6 @@ st.markdown("""
     </style>
 
     <script>
-    // 救命腳本：每 0.5 秒檢查一次網址，只要看到 # 就擦掉，確保分頁不空白
     setInterval(function() {
         if (window.location.hash) {
             history.replaceState(null, null, window.location.pathname);
@@ -86,16 +83,18 @@ tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "
 
 with tab1:
     c_in, c_bt = st.columns([4, 1])
-    search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：徐鳳慈", key="search_main")
+    search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
     
+    # 執行查詢
     if search_q:
         mask = (df_guest['票號_str'].str.contains(search_q, na=False)) | (df_guest['姓名'].str.contains(search_q, na=False))
         found = df_guest[mask]
+        
         if not found.empty:
             row = found.iloc[0]
             st.session_state.focus_table = int(row['桌號'])
             
-            # --- 完美同框結構 ---
+            # 顯示完美同框黃框
             st.markdown(f"""
                 <div class="popup-container">
                     <a href="./" target="_self" class="close-x">×</a>
@@ -109,9 +108,12 @@ with tab1:
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            st.error("查無資料")
+            # --- 修正處：查無資料時的動作 ---
+            st.session_state.focus_table = None # 清除之前高亮的桌子
+            st.error(f"❌ 查無資料：找不到與「{search_q}」相關的票號或姓名。")
+            st.warning("提示：請確認輸入是否正確，或至數據中心確認資料庫內容。")
 
-    # 繪製地圖
+    # 繪製地圖 (不變)
     if os.path.exists(LAYOUT_FILE):
         df_map = pd.read_csv(LAYOUT_FILE, header=None)
         num_cols = len(df_map.columns)
@@ -154,15 +156,8 @@ with tab2:
 
 with tab3:
     st.subheader("📊 數據中心")
-    # 下載按鈕間距優化
     st.markdown('<div class="download-section">', unsafe_allow_html=True)
     export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(
-        label="📥 下載最新賓客資料庫",
-        data=export_data,
-        file_name="千人宴最新總表.csv",
-        mime="text/csv"
-    )
+    st.download_button(label="📥 下載最新賓客資料庫", data=export_data, file_name="千人宴最新總表.csv", mime="text/csv")
     st.markdown('</div>', unsafe_allow_html=True)
-    
     st.dataframe(df_guest, use_container_width=True)
