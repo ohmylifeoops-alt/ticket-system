@@ -17,9 +17,15 @@ st.markdown("""
     /* 搜尋按鈕對齊 */
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
     
-    /* 搜尋區域與地圖拉開間距 (使用更穩定的選擇器) */
+    /* 搜尋區域與地圖拉開間距 (CSS 保底) */
     div[data-testid="stVerticalBlock"] > div:has(input[key="search_main"]) {
-        margin-bottom: 60px !important; 
+        margin-bottom: 20px !important; 
+    }
+
+    /* 物理間距的高度設定：對應 CSV 裡的空行 */
+    .spacer-row {
+        height: 50px; 
+        width: 100%;
     }
 
     /* 完美同框黃框容器 */
@@ -35,7 +41,6 @@ st.markdown("""
         font-size: 30px; color: #555; text-decoration: none; font-weight: bold;
     }
 
-    /* 框內鎖定黑按鈕 */
     .inner-btn {
         display: inline-block; background-color: #000; color: #fff !important;
         padding: 15px 30px; border-radius: 12px; text-decoration: none;
@@ -54,13 +59,12 @@ st.markdown("""
     
     .target-spot { scroll-margin-top: 350px; }
     
-    /* 亮黃色選中桌子 */
+    /* 高亮選中桌子 */
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important;
         border: 3px solid #FBC02D !important; font-weight: bold; transform: scale(1.1);
     }
 
-    /* 下載按鈕間距優化 */
     .download-section {
         margin: 20px 0 30px 0 !important;
         padding-bottom: 20px;
@@ -69,7 +73,7 @@ st.markdown("""
     </style>
 
     <script>
-    // 網址清潔工：確保 Tab 2/3 永遠不會變空白
+    // 網址清理：確保跳轉後 Tab 2/3 不變空白
     setInterval(function() {
         if (window.location.hash) {
             history.replaceState(null, null, window.location.pathname);
@@ -105,7 +109,6 @@ with tab1:
             row = found.iloc[0]
             st.session_state.focus_table = int(row['桌號'])
             
-            # 絕對同框黃框
             st.markdown(f"""
                 <div class="popup-container">
                     <a href="./" target="_self" class="close-x">×</a>
@@ -119,20 +122,27 @@ with tab1:
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            # 搜尋不到時的明確反饋
             st.session_state.focus_table = None
-            st.error(f"❌ 查無資料：找不到與「{search_q}」相關的內容。")
+            st.error(f"❌ 查無資料。")
 
-    # 繪製地圖 (原封不動)
+    # 繪製地圖
     if os.path.exists(LAYOUT_FILE):
-        df_map = pd.read_csv(LAYOUT_FILE, header=None)
+        # 關鍵：skip_blank_lines=False 讓程式讀取 CSV 內的空行
+        df_map = pd.read_csv(LAYOUT_FILE, header=None, skip_blank_lines=False)
         num_cols = len(df_map.columns)
+        
         for r_idx, row in df_map.iterrows():
-            row_content = "".join([str(v) for v in row if not pd.isna(v)])
-            if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
-                color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
-                st.markdown(f'<div class="label-box-fixed" style="--label-color: {color};">{row_content}</div>', unsafe_allow_html=True)
+            # 偵測是否為空行（包括整列為空或全是空格）
+            row_content_raw = "".join([str(v) for v in row if not pd.isna(v)])
+            if row_content_raw.strip() == "":
+                st.markdown('<div class="spacer-row"></div>', unsafe_allow_html=True)
                 continue
+
+            if any(k in row_content_raw for k in ["舞台", "入口", "電視牆"]):
+                color = "#FF4B4B" if "舞台" in row_content_raw else ("#333333" if "電視" in row_content_raw else "#2E7D32")
+                st.markdown(f'<div class="label-box-fixed" style="--label-color: {color};">{row_content_raw}</div>', unsafe_allow_html=True)
+                continue
+            
             cols = st.columns(num_cols)
             for c_idx, val in enumerate(row):
                 with cols[c_idx]:
@@ -151,16 +161,14 @@ with tab2:
     if m_choice == "單筆登記":
         with st.form("single_form"):
             c1, c2, c3 = st.columns(3)
-            c1.text_input("姓名")
-            c2.number_input("票號", 1, 2000)
-            c3.number_input("桌號", 1, 200)
+            c1.text_input("姓名"); c2.number_input("票號", 1, 2000); c3.number_input("桌號", 1, 200)
             st.form_submit_button("執行單筆登記")
     elif m_choice == "連號批次登記":
         with st.form("batch_form"):
             c1, c2 = st.columns(2)
             c1.text_input("代表姓名"); c1.number_input("起始票號", 1)
             c2.text_input("負責人"); c2.number_input("張數", 1)
-            st.form_submit_button("生成預覽")
+            st.form_submit_button("生成預覽代碼")
     elif m_choice == "Excel 批次上傳":
         st.file_uploader("選擇 Excel 檔案 (.xlsx)", type=["xlsx"])
 
