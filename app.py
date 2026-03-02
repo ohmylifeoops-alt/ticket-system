@@ -1,140 +1,152 @@
 import streamlit as st
 import pandas as pd
-import os
+from streamlit_gsheets import GSheetsConnection
 
-# --- 1. 系統設定 ---
-LAYOUT_FILE = '排桌.xlsx - 工作表1.csv' 
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1m7Ak2e7QZdXWYdzKL77g20gHieId5bRpRZsVtyQG05g/export?format=csv"
+# --- 設定頁面 ---
+st.set_page_config(page_title="雲端票務系統", page_icon="☁️", layout="wide")
+st.title("☁️ 雲端活動票務管理系統")
 
-st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layout="wide")
+# --- 連線 Google Sheets ---
+# 使用 ttl=0 確保每次都讀到最新資料
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-if 'focus_table' not in st.session_state:
-    st.session_state.focus_table = None
+try:
+    df = conn.read(worksheet="Sheet1", ttl=0) # 預設工作表名稱通常是 Sheet1
+    # 如果是空表，確保欄位存在
+    if df.empty:
+        df = pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
+except Exception:
+    # 處理第一次讀取可能為空的情況
+    df = pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
 
-# --- 🎨 核心 CSS ---
-st.markdown("""
-    <style>
-    div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
-    .popup-container {
-        position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
-        width: 380px; background-color: #FFD700; border-radius: 20px;
-        box-shadow: 0px 20px 60px rgba(0,0,0,0.5); z-index: 9999;
-        text-align: center; border: 4px solid #DAA520; padding: 40px 20px;
-    }
-    .close-x {
-        position: absolute; top: 15px; right: 20px; font-size: 30px; color: #555; text-decoration: none; font-weight: bold;
-    }
-    .inner-btn {
-        display: inline-block; background-color: #000; color: #fff !important; padding: 15px 30px; border-radius: 12px;
-        text-decoration: none; font-size: 18px; font-weight: bold; width: 85%; margin-top: 20px;
-    }
-    [data-testid="stVerticalBlock"] { gap: 0px !important; }
-    [data-testid="stHorizontalBlock"] { margin-bottom: -15px !important; }
-    .label-box-fixed {
-        background-color: var(--label-color); color: white; text-align: center; padding: 15px !important;
-        border-radius: 10px; font-weight: bold; font-size: 22px !important; margin: 15px 0 !important; width: 100%;
-    }
-    .target-spot { scroll-margin-top: 350px; }
-    .stButton > button[kind="primary"] {
-        background-color: #FFEB3B !important; color: #000 !important; border: 3px solid #FBC02D !important; font-weight: bold; transform: scale(1.1);
-    }
-    .download-section { margin: 20px 0 30px 0 !important; padding-bottom: 20px; border-bottom: 1px solid #eee; }
-    .spacer-row { height: 45px; width: 100%; }
-    </style>
-    <script>
-    setInterval(function() {
-        if (window.location.hash) { history.replaceState(null, null, window.location.pathname); }
-    }, 500);
-    </script>
-    """, unsafe_allow_html=True)
-
-@st.cache_data(ttl=30, show_spinner=False)
-def load_data():
-    try:
-        data = pd.read_csv(SHEET_URL)
-        if '票號' in data.columns: data['票號_str'] = data['票號'].astype(str)
-        if '桌號' in data.columns: data['桌號'] = pd.to_numeric(data['桌號'], errors='coerce').fillna(0).astype(int)
-        return data
-    except:
-        return pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
-
-df_guest = load_data()
-
-tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
-
-with tab1:
-    c_in, c_bt = st.columns([4, 1])
-    search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
+# --- 定義確認對話框 (放在程式碼前段) ---
+@st.dialog("⚠️ 重複資料警告")
+def confirm_overwrite(ticket_val, name, phone, seller, df, conn):
+    # 這裡顯示舊資料讓使用者比對（選用）
+    old_name = df[df["票號"] == ticket_val]["姓名"].values
+    st.write(f"票號 **{ticket_val}** 已經被 **{old_name}** 註冊過了！")
+    st.write("您確定要用目前的資料覆蓋並取代舊資料嗎？")
     
-    if search_q:
-        # --- 🥚 優先檢查彩蛋暗號 ---
-        if search_q in ["靜好大仙", "劉來好"]:
-            st.markdown('<div class="popup-container" style="background-color: #FFF9C4; border-color: #FBC02D;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold; color: #424242; line-height: 1.6;">她跟馬經理都在這裡<br>陪著大家</p></div>', unsafe_allow_html=True)
-        elif search_q == "陳聰發":
-            st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 陳聰發</h2><p style="font-size: 24px; font-weight: bold;">他在旁邊<br>一直幫我們加油喔</p></div>', unsafe_allow_html=True)
-        elif search_q == "馬慧斌":
-            st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 馬慧斌</h2><p style="font-size: 24px; font-weight: bold;">他在現場喔！<br>你有看到嗎？</p></div>', unsafe_allow_html=True)
-        elif search_q == "黃棋龍":
-            st.balloons()
-            st.markdown('<div class="popup-container" style="background-color: #FFFDE7;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #FBC02D;">✨ 黃棋龍</h2><p style="font-size: 32px; font-weight: bold; color: #E65100;">頑張って！</p></div>', unsafe_allow_html=True)
-        elif search_q == "郭和錦":
-            st.markdown('<div class="popup-container" style="background-color: #FCE4EC;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #EC407A;">🌸 郭和錦</h2><p style="font-size: 26px; font-weight: bold; color: #880E4F;">賴經理加油！</p></div>', unsafe_allow_html=True)
-        elif search_q == "辛苦了":
-            st.snow()
-            st.markdown('<div class="popup-container" style="background-color: #E3F2FD;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #1565C0;">💙 致 工作人員</h2><p style="font-size: 20px; font-weight: bold;">各位工作人員辛苦了，<br>這場「千人宴」因為有你們而完美！</p></div>', unsafe_allow_html=True)
-        elif search_q == "傳承":
-            st.balloons()
-            st.markdown('<div class="popup-container" style="background-color: #F1F8E9;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #33691E;">🌱 傳承與希望</h2><p style="font-size: 20px; font-weight: bold;">千人宴是一場聚會，<br>更是一份文化的傳遞。</p></div>', unsafe_allow_html=True)
-        elif search_q == "大會成功":
-            st.balloons()
-            st.markdown('<div class="popup-container" style="background-color: #E8F5E9; border-color: #4CAF50;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #2E7D32;">🎉 圓滿成功</h2><p style="font-size: 20px; font-weight: bold; color: #1B5E20;">預祝千人宴大會圓滿成功，<br>萬事順意！</p></div>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("❌ 取消"):
+            st.rerun() # 重新整理，關閉視窗
+            
+    with col2:
+        if st.button("✅ 確認覆蓋", type="primary"):
+            # --- 執行覆蓋邏輯 ---
+            # 1. 算出桌號
+            table_num = (ticket_val - 1) // 10 + 1
+            
+            # 2. 在資料中找到該票號的位置並更新 (Update)
+            # 使用 update 寫法：先刪除舊的，再加新的，確保乾淨
+            df_new = df[df["票號"]!= ticket_val].copy()
+            
+            new_entry = pd.DataFrame([{
+                "姓名": name,
+                "聯絡電話": phone,
+                "票號": ticket_val,
+                "售出者": seller,
+                "桌號": table_num
+            }])
+            
+            df_final = pd.concat([df_new, new_entry], ignore_index=True)
+            
+            # 3. 寫回 Google Sheets
+            conn.update(worksheet="Sheet1", data=df_final)
+            
+            # 4. 清除快取並顯示成功訊息
+            st.cache_data.clear()
+            st.session_state["success_msg"] = f"已成功覆蓋票號 {ticket_val}！"
+            st.rerun()
+
+# --- 核心邏輯：計算桌號 ---
+def calculate_table(ticket_id):
+    try:
+        tid = int(ticket_id)
+        if tid <= 0: return None
+        return (tid - 1) // 10 + 1
+    except ValueError:
+        return None
+
+# --- 側邊欄：輸入資料 ---
+with st.sidebar:
+    st.header("📝 新增賓客")
+    with st.form("entry_form", clear_on_submit=True):
+        name = st.text_input("姓名")
+        phone = st.text_input("聯絡電話")
+        # 限制輸入 1-2000
+        ticket_val = st.number_input("票號 (1-2000)", min_value=1, max_value=2000, step=1)
+        seller = st.text_input("售出者")
         
-        # --- 正常搜尋邏輯 ---
-        else:
-            mask = (df_guest['票號_str'].str.contains(search_q, na=False)) | (df_guest['姓名'].str.contains(search_q, na=False))
-            found = df_guest[mask]
-            if not found.empty:
-                row = found.iloc[0]
-                st.session_state.focus_table = int(row['桌號'])
-                st.markdown(f"""<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: black;">👋 {row['姓名']} 貴賓</h2><p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">位置：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌</p><a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">👉 點我看座位 (自動捲動)</a></div>""", unsafe_allow_html=True)
+        submitted = st.form_submit_button("確認登記")
+        
+        if submitted:
+            if not name:
+                st.error("姓名為必填！")
             else:
-                st.session_state.focus_table = None
-                st.error("❌ 查無資料。")
+                # 檢查票號是否已存在
+                if not df.empty and ticket_val in df["票號"].values:
+                    # [關鍵] 如果重複，不直接寫入，而是呼叫對話框
+                    confirm_overwrite(ticket_val, name, phone, seller, df, conn)
+                else:
+                    # 如果沒重複，直接新增 (這部分保持原本的新增邏輯)
+                    table_num = calculate_table(ticket_val)
+                    new_entry = pd.DataFrame([{
+                        "姓名": name,
+                        "聯絡電話": phone,
+                        "票號": ticket_val,
+                        "售出者": seller,
+                        "桌號": table_num
+                    }])
+                    updated_df = pd.concat([df, new_entry], ignore_index=True)
+                    conn.update(worksheet="Sheet1", data=updated_df)
+                    st.cache_data.clear()
+                    st.success(f"✅ 登記成功！{name} 在第 {table_num} 桌")
 
-    # 地圖繪製邏輯
-    if os.path.exists(LAYOUT_FILE):
-        df_map = pd.read_csv(LAYOUT_FILE, header=None, skip_blank_lines=False)
-        num_cols = len(df_map.columns)
-        for r_idx, row in df_map.iterrows():
-            if row.isnull().all() or "".join([str(v) for v in row if not pd.isna(v)]).strip() == "":
-                st.markdown('<div class="spacer-row"></div>', unsafe_allow_html=True)
-                continue
-            row_content = "".join([str(v) for v in row if not pd.isna(v)])
-            if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
-                color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
-                st.markdown(f'<div class="label-box-fixed" style="--label-color: {color};">{row_content}</div>', unsafe_allow_html=True)
-                continue
-            cols = st.columns(num_cols)
-            for c_idx, val in enumerate(row):
-                with cols[c_idx]:
-                    cell_text = str(val).strip() if not pd.isna(val) else ""
-                    if cell_text not in ["", "nan"]:
-                        try:
-                            t_num = int(float(val))
-                            st.markdown(f'<div id="t_{t_num}" class="target-spot"></div>', unsafe_allow_html=True)
-                            st.button(f"VIP{t_num}" if t_num <= 3 else str(t_num), key=f"m_{r_idx}_{c_idx}", type="primary" if t_num == st.session_state.focus_table else "secondary", use_container_width=True)
-                        except:
-                            st.caption(cell_text)
+    # --- 顯示覆蓋成功的訊息 (放在側邊欄底部) ---
+    if "success_msg" in st.session_state:
+        st.success(st.session_state["success_msg"])
+        # 顯示一次後刪除，避免訊息一直留著
+        del st.session_state["success_msg"]
 
-# Tab 2, 3 功能不變
-with tab2:
-    st.subheader("📝 登記與驗證功能")
-    m_choice = st.radio("模式選擇", ["單筆登記", "連號批次登記", "Excel 批次上傳"], horizontal=True)
-    if m_choice == "單筆登記":
-        with st.form("s"):
-            c1, c2, c3 = st.columns(3)
-            c1.text_input("姓名"); c2.number_input("票號", 1, 2000); c3.number_input("桌號", 1, 200)
-            st.form_submit_button("執行單筆登記")
-    elif m_choice == "連號批次登記":
-        with st.form("b"):
-            c
+# --- 主畫面：搜尋與顯示 ---
+st.subheader("🔍 名單查詢")
+search_term = st.text_input("輸入關鍵字 (姓名、票號、桌號...)")
+
+if not df.empty:
+    # 顯示用的 DataFrame
+    display_df = df.copy()
+    
+    # 搜尋邏輯
+    if search_term:
+        mask = display_df.astype(str).apply(
+            lambda x: x.str.contains(search_term, case=False).any(), axis=1
+        )
+        display_df = display_df[mask]
+    
+    # 排序：依票號
+    display_df = display_df.sort_values(by="票號")
+    
+    # 美化表格顯示
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "票號": st.column_config.NumberColumn(format="%d"),
+            "桌號": st.column_config.NumberColumn(format="%d 桌"),
+        }
+    )
+    st.caption(f"共 {len(display_df)} 筆資料")
+else:
+    st.info("目前資料庫是空的，請從側邊欄新增資料。")
+    
+# 將資料轉為 CSV 字串
+csv = df.to_csv(index=False).encode('utf-8')
+
+st.download_button(
+    label="📥 下載完整總表 (CSV)",
+    data=csv,
+    file_name='guest_list_total.csv',
+    mime='text/csv',)
