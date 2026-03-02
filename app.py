@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import os
+import requests
+from io import StringIO
 
 # --- 1. 系統設定 ---
 LAYOUT_FILE = '排桌.xlsx - 工作表1.csv' 
@@ -11,7 +13,7 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS ---
+# --- 🎨 核心 CSS (完全保留原樣) ---
 st.markdown("""
     <style>
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
@@ -51,10 +53,15 @@ st.markdown("""
 @st.cache_data(ttl=30, show_spinner=False)
 def load_data():
     try:
-        data = pd.read_csv(SHEET_URL)
-        if '票號' in data.columns: data['票號_str'] = data['票號'].astype(str)
-        if '桌號' in data.columns: data['桌號'] = pd.to_numeric(data['桌號'], errors='coerce').fillna(0).astype(int)
-        return data
+        # 改用 requests 確保線上版抓取穩定
+        response = requests.get(SHEET_URL, timeout=10)
+        if response.status_code == 200:
+            response.encoding = 'utf-8'
+            data = pd.read_csv(StringIO(response.text))
+            if '票號' in data.columns: data['票號_str'] = data['票號'].astype(str)
+            if '桌號' in data.columns: data['桌號'] = pd.to_numeric(data['桌號'], errors='coerce').fillna(0).astype(int)
+            return data
+        return pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
     except:
         return pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
 
@@ -67,7 +74,7 @@ with tab1:
     search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
     
     if search_q:
-        # --- 🥚 優先檢查彩蛋暗號 ---
+        # --- 🥚 彩蛋部分 (完全保留) ---
         if search_q in ["靜好大仙", "劉來好"]:
             st.markdown('<div class="popup-container" style="background-color: #FFF9C4; border-color: #FBC02D;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold; color: #424242; line-height: 1.6;">她跟馬經理都在這裡<br>陪著大家</p></div>', unsafe_allow_html=True)
         elif search_q == "陳聰發":
@@ -96,12 +103,14 @@ with tab1:
             if not found.empty:
                 row = found.iloc[0]
                 st.session_state.focus_table = int(row['桌號'])
-                st.markdown(f"""<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: black;">👋 {row['姓名']} 貴賓</h2><p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">位置：第 {st.session_state.focus_table if st.session_state.focus_table > 3 else 'VIP' + str(st.session_state.focus_table)} 桌</p><a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">👉 點我看座位 (自動捲動)</a></div>""", unsafe_allow_html=True)
+                # 判斷 VIP 桌顯示
+                t_display = f"第 {st.session_state.focus_table} 桌" if st.session_state.focus_table > 3 else f"第 VIP{st.session_state.focus_table} 桌"
+                st.markdown(f"""<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: black;">👋 {row['姓名']} 貴賓</h2><p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">位置：{t_display}</p><a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">👉 點我看座位 (自動捲動)</a></div>""", unsafe_allow_html=True)
             else:
                 st.session_state.focus_table = None
                 st.error("❌ 查無資料。")
 
-    # 地圖繪製邏輯
+    # 地圖繪製 (完全保留)
     if os.path.exists(LAYOUT_FILE):
         df_map = pd.read_csv(LAYOUT_FILE, header=None, skip_blank_lines=False)
         num_cols = len(df_map.columns)
@@ -126,7 +135,7 @@ with tab1:
                         except:
                             st.caption(cell_text)
 
-# Tab 2, 3 功能不變
+# Tab 2, 3 保留
 with tab2:
     st.subheader("📝 登記與驗證功能")
     m_choice = st.radio("模式選擇", ["單筆登記", "連號批次登記", "Excel 批次上傳"], horizontal=True)
@@ -145,7 +154,8 @@ with tab2:
 
 with tab3:
     st.markdown('<div class="download-section">', unsafe_allow_html=True)
-    export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(label="📥 下載最新資料庫", data=export_data, file_name="千人宴總表.csv")
+    if not df_guest.empty:
+        export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(label="📥 下載最新資料庫", data=export_data, file_name="千人宴總表.csv")
     st.markdown('</div>', unsafe_allow_html=True)
     st.dataframe(df_guest, use_container_width=True)
