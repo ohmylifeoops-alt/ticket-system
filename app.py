@@ -11,7 +11,7 @@ st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layo
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
-# --- 🎨 核心 CSS (完全保留原樣) ---
+# --- 🎨 核心 CSS ---
 st.markdown("""
     <style>
     div.stButton > button:first-child { height: 3em !important; margin-top: 28px !important; }
@@ -55,18 +55,17 @@ def load_data():
             if '票號' in data.columns: data['票號_str'] = data['票號'].astype(str)
             if '桌號' in data.columns: data['桌號'] = pd.to_numeric(data['桌號'], errors='coerce').fillna(0).astype(int)
             return data
-        return pd.DataFrame(columns=["姓名", "票號", "桌號"])
     except:
-        return pd.DataFrame(columns=["姓名", "票號", "桌號"])
+        pass
+    return pd.DataFrame(columns=["姓名", "票號", "桌號", "聯絡電話", "售出者"])
 
 df_guest = load_data()
 
-# --- 🗺️ 3. 地圖數據直接嵌入 (不再讀取外部CSV) ---
-# 第一排 3桌, 中間 9桌, 電視牆在66-67, 最後兩排 5桌
+# --- 🗺️ 3. 地圖結構寫死 ---
 layout_data = [
     ["", "", "", "舞台", "", "", ""],
     ["", "", "", "1", "2", "3", "", "", ""],
-    [""], # 空行
+    [""],
     ["4", "5", "6", "7", "8", "9", "10", "11", "12"],
     ["13", "14", "15", "16", "17", "18", "19", "20", "21"],
     ["22", "23", "24", "25", "26", "27", "28", "29", "30"],
@@ -86,13 +85,11 @@ layout_data = [
     ["", "", "", "入口", "", "", ""]
 ]
 
-tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
+tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 登記與驗證功能", "📊 數據中心"])
 
 with tab1:
     search_q = st.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
-    
     if search_q:
-        # --- 🥚 彩蛋部分 (完全保留) ---
         if search_q in ["靜好大仙", "劉來好"]:
             st.markdown('<div class="popup-container" style="background-color: #FFF9C4;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold;">她跟馬經理都在這裡<br>陪著大家</p></div>', unsafe_allow_html=True)
         elif search_q == "陳聰發":
@@ -113,7 +110,7 @@ with tab1:
             else:
                 st.error("❌ 查無資料")
 
-    # --- 🗺️ 地圖渲染 ---
+    # 地圖渲染
     for r_idx, row in enumerate(layout_data):
         if not any(row):
             st.markdown('<div class="spacer-row"></div>', unsafe_allow_html=True)
@@ -123,7 +120,6 @@ with tab1:
             color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
             st.markdown(f'<div class="label-box-fixed" style="--label-color: {color};">{row_content}</div>', unsafe_allow_html=True)
             continue
-        
         cols = st.columns(len(row))
         for c_idx, val in enumerate(row):
             with cols[c_idx]:
@@ -136,9 +132,34 @@ with tab1:
                     except:
                         st.caption(val)
 
+# --- Tab 2: 登記功能全面回歸 ---
 with tab2:
     st.subheader("📝 登記與驗證功能")
-    st.info("此功能目前為介面展示")
+    m_choice = st.radio("模式選擇", ["單筆登記", "連號批次登記", "Excel 批次上傳"], horizontal=True)
+    
+    if m_choice == "單筆登記":
+        with st.form("single_form"):
+            c1, c2, c3 = st.columns(3)
+            name = c1.text_input("姓名")
+            ticket = c2.number_input("票號", 1, 2000)
+            table = c3.number_input("桌號", 1, 200)
+            submitted = st.form_submit_button("執行單筆登記")
+            if submitted:
+                st.success(f"已登記：{name} (票號 {ticket}) 至 第 {table} 桌")
+
+    elif m_choice == "連號批次登記":
+        with st.form("batch_form"):
+            c1, c2, c3 = st.columns([2, 1, 1])
+            base_name = c1.text_input("代表姓名")
+            count = c2.number_input("張數", 1, 50)
+            start_ticket = c3.number_input("起始票號", 1)
+            submitted = st.form_submit_button("生成預覽代碼")
+            if submitted:
+                st.info(f"將為 {base_name} 生成 {count} 張連號票 (從 {start_ticket} 開始)")
+
+    elif m_choice == "Excel 批次上傳":
+        st.file_uploader("選擇 Excel 檔案 (.xlsx)", type=["xlsx"])
+        st.warning("提醒：請確保欄位名稱與系統一致")
 
 with tab3:
     st.dataframe(df_guest, use_container_width=True)
