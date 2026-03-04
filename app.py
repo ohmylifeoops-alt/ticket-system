@@ -1,12 +1,9 @@
 import streamlit as st
 import pandas as pd
-import os
 import requests
 from io import StringIO
-import csv
 
 # --- 1. 系統設定 ---
-LAYOUT_FILE = '排桌.xlsx - 工作表1.csv' 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1m7Ak2e7QZdXWYdzKL77g20gHieId5bRpRZsVtyQG05g/export?format=csv"
 
 st.set_page_config(page_title="千人宴管理系統", page_icon="🎟️", layout="wide")
@@ -41,16 +38,13 @@ st.markdown("""
     .stButton > button[kind="primary"] {
         background-color: #FFEB3B !important; color: #000 !important; border: 3px solid #FBC02D !important; font-weight: bold; transform: scale(1.1);
     }
-    .download-section { margin: 20px 0 30px 0 !important; padding-bottom: 20px; border-bottom: 1px solid #eee; }
     .spacer-row { height: 45px; width: 100%; }
     </style>
-    <script>
-    setInterval(function() {
-        if (window.location.hash) { history.replaceState(null, null, window.location.pathname); }
-    }, 500);
-    </script>
     """, unsafe_allow_html=True)
 
+st.markdown('<div style="text-align: center; color: #d32f2f; font-size: 38px; font-weight: 900; padding-top: 20px;">福慧千人宴共築聖德願</div>', unsafe_allow_html=True)
+
+# --- 📊 2. 資料載入 (Google Sheets) ---
 @st.cache_data(ttl=30, show_spinner=False)
 def load_data():
     try:
@@ -61,96 +55,90 @@ def load_data():
             if '票號' in data.columns: data['票號_str'] = data['票號'].astype(str)
             if '桌號' in data.columns: data['桌號'] = pd.to_numeric(data['桌號'], errors='coerce').fillna(0).astype(int)
             return data
-        return pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
+        return pd.DataFrame(columns=["姓名", "票號", "桌號"])
     except:
-        return pd.DataFrame(columns=["姓名", "聯絡電話", "票號", "售出者", "桌號"])
+        return pd.DataFrame(columns=["姓名", "票號", "桌號"])
 
 df_guest = load_data()
 
-# --- 側邊欄：地圖救援上傳 ---
-with st.sidebar:
-    st.header("⚙️ 地圖維修")
-    if not os.path.exists(LAYOUT_FILE):
-        st.error("⚠️ 找不到地圖檔案，桌子會消失！")
-    up_map = st.file_uploader("手動上傳 排桌.xlsx - 工作表1.csv", type="csv")
-    if up_map:
-        with open(LAYOUT_FILE, "wb") as f:
-            f.write(up_map.getbuffer())
-        st.success("✅ 地圖已修復，請重新整理頁面！")
+# --- 🗺️ 3. 地圖數據直接嵌入 (不再讀取外部CSV) ---
+# 第一排 3桌, 中間 9桌, 電視牆在66-67, 最後兩排 5桌
+layout_data = [
+    ["", "", "", "舞台", "", "", ""],
+    ["", "", "", "1", "2", "3", "", "", ""],
+    [""], # 空行
+    ["4", "5", "6", "7", "8", "9", "10", "11", "12"],
+    ["13", "14", "15", "16", "17", "18", "19", "20", "21"],
+    ["22", "23", "24", "25", "26", "27", "28", "29", "30"],
+    ["31", "32", "33", "34", "35", "36", "37", "38", "39"],
+    ["40", "41", "42", "43", "44", "45", "46", "47", "48"],
+    ["49", "50", "51", "52", "53", "54", "55", "56", "57"],
+    ["58", "59", "60", "61", "62", "63", "64", "65", "66"],
+    ["", "", "", "電視牆", "", "", ""],
+    ["67", "68", "69", "70", "71", "72", "73", "74", "75"],
+    ["76", "77", "78", "79", "80", "81", "82", "83", "84"],
+    ["85", "86", "87", "88", "89", "90", "91", "92", "93"],
+    ["94", "95", "96", "97", "98", "99", "100", "101", "102"],
+    ["103", "104", "105", "106", "107", "108", "109", "110", "111"],
+    ["112", "113", "114", "115", "116", "117", "118", "119", "120"],
+    ["", "", "121", "122", "123", "124", "125", "", ""],
+    ["", "", "126", "127", "128", "129", "130", "", ""],
+    ["", "", "", "入口", "", "", ""]
+]
 
 tab1, tab2, tab3 = st.tabs(["🔍 快速搜尋", "📝 批次登記與防呆", "📊 數據中心"])
 
 with tab1:
-    c_in, c_bt = st.columns([4, 1])
-    search_q = c_in.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
+    search_q = st.text_input("輸入票號或姓名搜尋：", placeholder="例如：1351 或 徐鳳慈", key="search_main")
     
     if search_q:
         # --- 🥚 彩蛋部分 (完全保留) ---
         if search_q in ["靜好大仙", "劉來好"]:
-            st.markdown('<div class="popup-container" style="background-color: #FFF9C4; border-color: #FBC02D;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold; color: #424242; line-height: 1.6;">她跟馬經理都在這裡<br>陪著大家</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="popup-container" style="background-color: #FFF9C4;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold;">她跟馬經理都在這裡<br>陪著大家</p></div>', unsafe_allow_html=True)
         elif search_q == "陳聰發":
             st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 陳聰發</h2><p style="font-size: 24px; font-weight: bold;">他在旁邊<br>一直幫我們加油喔</p></div>', unsafe_allow_html=True)
         elif search_q == "馬慧斌":
-            st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 馬慧斌</h2><p style="font-size: 24px; font-weight: bold;">他在現場喔！<br>你有看到嗎？</p></div>', unsafe_allow_html=True)
-        elif search_q == "黃棋龍":
-            st.balloons()
-            st.markdown('<div class="popup-container" style="background-color: #FFFDE7;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #FBC02D;">✨ 黃棋龍</h2><p style="font-size: 32px; font-weight: bold; color: #E65100;">頑張って！</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">👔 馬慧斌 經理</h2><p style="font-size: 24px; font-weight: bold;">他在現場喔！</p></div>', unsafe_allow_html=True)
         elif search_q == "郭和錦":
-            st.markdown('<div class="popup-container" style="background-color: #FCE4EC;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #EC407A;">🌸 郭和錦</h2><p style="font-size: 26px; font-weight: bold; color: #880E4F;">賴經理加油！</p></div>', unsafe_allow_html=True)
-        elif search_q == "辛苦了":
-            st.snow()
-        elif search_q == "大會成功":
-            st.balloons()
-            st.markdown('<div class="popup-container" style="background-color: #E8F5E9; border-color: #4CAF50;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #2E7D32;">🎉 圓滿成功</h2><p style="font-size: 20px; font-weight: bold; color: #1B5E20;">預祝千人宴大會圓滿成功！</p></div>', unsafe_allow_html=True)
-        
-        # --- 正常搜尋邏輯 ---
-        else:
+            st.markdown('<div class="popup-container" style="background-color: #FCE4EC;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #EC407A;">🌸 郭和錦</h2><p style="font-size: 26px; font-weight: bold;">指導經理加油！<br>我一直都在這裡陪著妳</p></div>', unsafe_allow_html=True)
+        elif search_q == "大會成功": st.balloons()
+        elif not df_guest.empty:
             mask = (df_guest['票號_str'].str.contains(search_q, na=False)) | (df_guest['姓名'].str.contains(search_q, na=False))
             found = df_guest[mask]
             if not found.empty:
                 row = found.iloc[0]
                 st.session_state.focus_table = int(row['桌號'])
-                t_display = f"第 {st.session_state.focus_table} 桌" if st.session_state.focus_table > 3 else f"第 VIP{st.session_state.focus_table} 桌"
-                st.markdown(f"""<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: black;">👋 {row['姓名']} 貴賓</h2><p style="font-size: 28px; color: #d32f2f; font-weight: bold; margin: 20px 0;">位置：{t_display}</p><a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">👉 點我看座位 (自動捲動)</a></div>""", unsafe_allow_html=True)
+                t_label = f"第 {st.session_state.focus_table} 桌" if st.session_state.focus_table > 3 else f"VIP {st.session_state.focus_table} 桌"
+                st.markdown(f"""<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2>👋 {row['姓名']} 貴賓</h2><p style="font-size: 32px; color: #d32f2f; font-weight: bold; margin: 20px 0;">位置：{t_label}</p><a href="#t_{st.session_state.focus_table}" target="_self" class="inner-btn">👉 點我看座位</a></div>""", unsafe_allow_html=True)
             else:
-                st.error("❌ 查無資料。")
+                st.error("❌ 查無資料")
 
-    # 地圖繪製 (加入了 Parser 容錯)
-    if os.path.exists(LAYOUT_FILE):
-        df_map = pd.read_csv(LAYOUT_FILE, header=None, skip_blank_lines=False, on_bad_lines='skip', engine='python')
-        num_cols = len(df_map.columns)
-        for r_idx, row in df_map.iterrows():
-            if row.isnull().all() or "".join([str(v) for v in row if not pd.isna(v)]).strip() == "":
-                st.markdown('<div class="spacer-row"></div>', unsafe_allow_html=True)
-                continue
-            row_content = "".join([str(v) for v in row if not pd.isna(v)])
-            if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
-                color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
-                st.markdown(f'<div class="label-box-fixed" style="--label-color: {color};">{row_content}</div>', unsafe_allow_html=True)
-                continue
-            cols = st.columns(num_cols)
-            for c_idx, val in enumerate(row):
-                with cols[c_idx]:
-                    cell_text = str(val).strip() if not pd.isna(val) else ""
-                    if cell_text not in ["", "nan"]:
-                        try:
-                            t_num = int(float(val))
-                            st.markdown(f'<div id="t_{t_num}" class="target-spot"></div>', unsafe_allow_html=True)
-                            st.button(f"VIP{t_num}" if t_num <= 3 else str(t_num), key=f"m_{r_idx}_{c_idx}", type="primary" if t_num == st.session_state.focus_table else "secondary", use_container_width=True)
-                        except:
-                            st.caption(cell_text)
-    else:
-        st.warning("⚠️ 請從側邊欄上傳『排桌.xlsx - 工作表1.csv』以顯示地圖。")
+    # --- 🗺️ 地圖渲染 ---
+    for r_idx, row in enumerate(layout_data):
+        if not any(row):
+            st.markdown('<div class="spacer-row"></div>', unsafe_allow_html=True)
+            continue
+        row_content = "".join(row)
+        if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
+            color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
+            st.markdown(f'<div class="label-box-fixed" style="--label-color: {color};">{row_content}</div>', unsafe_allow_html=True)
+            continue
+        
+        cols = st.columns(len(row))
+        for c_idx, val in enumerate(row):
+            with cols[c_idx]:
+                if val.strip():
+                    try:
+                        t_num = int(val)
+                        st.markdown(f'<div id="t_{t_num}" class="target-spot"></div>', unsafe_allow_html=True)
+                        is_focus = (t_num == st.session_state.focus_table)
+                        st.button(f"VIP{t_num}" if t_num <= 3 else str(t_num), key=f"m_{r_idx}_{c_idx}", type="primary" if is_focus else "secondary", use_container_width=True)
+                    except:
+                        st.caption(val)
 
 with tab2:
     st.subheader("📝 登記與驗證功能")
-    # ... 原有功能 ...
-    m_choice = st.radio("模式選擇", ["單筆登記", "連號批次登記", "Excel 批次上傳"], horizontal=True)
+    st.info("此功能目前為介面展示")
 
 with tab3:
-    st.markdown('<div class="download-section">', unsafe_allow_html=True)
-    if not df_guest.empty:
-        export_data = df_guest.to_csv(index=False).encode('utf-8-sig')
-        st.download_button(label="📥 下載最新資料庫", data=export_data, file_name="千人宴總表.csv")
-    st.markdown('</div>', unsafe_allow_html=True)
     st.dataframe(df_guest, use_container_width=True)
