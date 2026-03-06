@@ -5,12 +5,10 @@ from io import StringIO
 import re
 
 # --- 1. 系統設定 ---
-# 這是您的 Google Sheet CSV 導出連結
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1m7Ak2e7QZdXWYdzKL77g20gHieId5bRpRZsVtyQG05g/export?format=csv&gid=0"
 
 st.set_page_config(page_title="福慧千人宴管理系統", page_icon="🎟️", layout="wide")
 
-# 初始化 Session State
 if 'focus_table' not in st.session_state:
     st.session_state.focus_table = None
 
@@ -45,7 +43,7 @@ st.markdown("""
 
 st.markdown('<div style="text-align: center; color: #d32f2f; font-size: 38px; font-weight: 900; padding-top: 20px;">福慧千人宴 共築聖德願</div>', unsafe_allow_html=True)
 
-# --- 📊 2. 資料載入 ---
+# --- 📊 2. 資料載入與清洗 ---
 @st.cache_data(ttl=10, show_spinner=False)
 def load_data():
     try:
@@ -53,11 +51,14 @@ def load_data():
         if response.status_code == 200:
             response.encoding = 'utf-8'
             df = pd.read_csv(StringIO(response.text))
-            # 清洗資料：將票號與桌號標準化
-            if '票號' in df.columns:
-                df['票號'] = df['票號'].astype(str).str.strip()
-            if '桌號' in df.columns:
-                df['桌號'] = pd.to_numeric(df['桌號'], errors='coerce').fillna(0).astype(int)
+            
+            # 關鍵修正：解決小數點問題
+            # 將所有欄位轉為字串，並把 '.0' 替換掉，再去除空白
+            for col in df.columns:
+                df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+            
+            # 桌號轉回整數供地圖按鈕比對
+            df['桌號_int'] = pd.to_numeric(df['桌號'], errors='coerce').fillna(0).astype(int)
             return df
     except Exception as e:
         st.error(f"資料載入失敗: {e}")
@@ -65,11 +66,11 @@ def load_data():
 
 df_guest = load_data()
 
-# --- 🗺️ 3. 地圖結構 (1-130桌完整佈局) ---
+# --- 🗺️ 3. 地圖佈局 ---
 layout_data = [
     ["", "", "", "舞台", "", "", ""],
     ["", "", "VIP3", "VIP1", "VIP2", "", ""], 
-    [""], # 空行
+    [""], 
     ["4", "5", "6", "7", "8", "9", "10", "11", "12"],
     ["13", "14", "15", "16", "17", "18", "19", "20", "21"],
     ["22", "23", "24", "25", "26", "27", "28", "29", "30"],
@@ -95,46 +96,46 @@ with tab1:
     search_q = st.text_input("🔍 請輸入「票號」或「貴賓姓名」：", placeholder="例如：296 或 黃蘇霞", key="search_input")
     
     if search_q:
-        search_q = search_q.strip()
+        q = search_q.strip()
         
-        # --- 🥚 彩蛋觸發 (鎖定關鍵字) ---
-        if search_q in ["靜好大仙", "劉來好"]:
-            st.markdown('<div class="popup-container" style="background-color: #FFF9C4;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold;">她跟馬經理都在這裡<br>暖心地照看著大家</p></div>', unsafe_allow_html=True)
-        elif search_q == "馬慧斌":
-            st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">👔 馬慧斌 經理</h2><p style="font-size: 24px; font-weight: bold;">他在現場喔！<br>你有看到嗎？</p></div>', unsafe_allow_html=True)
-        elif search_q == "郭和錦":
-            st.markdown('<div class="popup-container" style="background-color: #FCE4EC;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #EC407A;">🌸 郭和錦</h2><p style="font-size: 26px; font-weight: bold;">賴經理加油！<br>我一直都在這裡陪著妳</p></div>', unsafe_allow_html=True)
+        # --- 🥚 彩蛋觸發 ---
+        if q in ["靜好大仙", "劉來好", "馬慧斌", "郭和錦"]:
+            if q in ["靜好大仙", "劉來好"]:
+                st.markdown('<div class="popup-container" style="background-color: #FFF9C4;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold;">她跟馬經理都在這裡<br>暖心地照看著大家</p></div>', unsafe_allow_html=True)
+            elif q == "馬慧斌":
+                st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">👔 馬慧斌 經理</h2><p style="font-size: 24px; font-weight: bold;">他在現場喔！<br>你有看到嗎？</p></div>', unsafe_allow_html=True)
+            elif q == "郭和錦":
+                st.markdown('<div class="popup-container" style="background-color: #FCE4EC;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #EC407A;">🌸 郭和錦</h2><p style="font-size: 26px; font-weight: bold;">賴經理加油！<br>我一直都在這裡陪著妳</p></div>', unsafe_allow_html=True)
         
-        # --- 🔍 搜尋邏輯 ---
+        # --- 🔍 精確搜尋邏輯 ---
         elif not df_guest.empty:
-            # 1. 票號：精確比對 (Exact Match)
-            # 2. 姓名：模糊比對 (Contains)
-            mask_ticket = (df_guest['票號'] == search_q)
-            mask_name = df_guest['姓名'].str.contains(search_q, na=False)
+            # 1. 票號比對：使用正則表達式邊界 \b，確保搜 296 不會中 1296
+            # 2. 姓名比對：模糊包含
+            mask_ticket = df_guest['票號'].str.contains(rf'\b{re.escape(q)}\b', na=False, regex=True)
+            mask_name = df_guest['姓名'].str.contains(q, na=False)
             
             found = df_guest[mask_ticket | mask_name]
             
             if not found.empty:
                 row = found.iloc[0]
-                table_val = row['桌號']
+                table_val = row['桌號_int']
                 st.session_state.focus_table = table_val
                 
-                # 判斷桌號顯示文字
-                display_table = f"第 {table_val} 桌"
-                if str(table_val).startswith("0"): # 處理 VIP 邏輯或特殊桌
-                    display_table = f"VIP 區"
-                
+                # 顯示文字處理
+                t_label = f"第 {table_val} 桌"
+                if "VIP" in row['桌號']: t_label = f"{row['桌號']} 區"
+
                 st.markdown(f"""
                     <div class="popup-container">
                         <a href="./" target="_self" class="close-x">×</a>
                         <h2 style="color: #333;">👋 {row['姓名']} 貴賓</h2>
-                        <p style="font-size: 32px; color: #d32f2f; font-weight: bold; margin: 20px 0;">位置：{display_table}</p>
+                        <p style="font-size: 32px; color: #d32f2f; font-weight: bold; margin: 20px 0;">位置：{t_label}</p>
                         <p style="color: #666;">票號：{row['票號']}</p>
                         <a href="#t_{table_val}" target="_self" class="inner-btn">👉 點我看座位</a>
                     </div>
                 """, unsafe_allow_html=True)
             else:
-                st.warning(f"查無「{search_q}」的資料，請確認輸入是否正確。")
+                st.warning(f"查無「{q}」的資料。")
 
     # --- 🗺️ 地圖渲染 ---
     for r_idx, row in enumerate(layout_data):
@@ -152,21 +153,16 @@ with tab1:
         for c_idx, val in enumerate(row):
             with cols[c_idx]:
                 if val.strip():
-                    # 處理桌號與樣式
+                    # 錨點處理
                     clean_val = val.replace("VIP", "")
                     st.markdown(f'<div id="t_{clean_val}" class="target-spot"></div>', unsafe_allow_html=True)
                     
-                    # 判斷是否為搜尋選中的桌子
-                    is_focus = False
-                    if st.session_state.focus_table:
-                        if str(st.session_state.focus_table) == clean_val:
-                            is_focus = True
-                    
+                    # 亮燈邏輯
+                    is_focus = (st.session_state.focus_table and str(st.session_state.focus_table) == clean_val)
                     st.button(val, key=f"btn_{r_idx}_{c_idx}", type="primary" if is_focus else "secondary", use_container_width=True)
 
 with tab2:
-    st.info("報到系統連線中... 目前可透過快速搜尋進行位置引導。")
+    st.info("系統維護中：報到功能連線正常。")
 
 with tab3:
-    st.subheader("📋 賓客名單總表 (同步自雲端)")
     st.dataframe(df_guest, use_container_width=True)
