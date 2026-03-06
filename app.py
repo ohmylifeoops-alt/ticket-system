@@ -53,7 +53,7 @@ def load_data():
             df = pd.read_csv(StringIO(response.text))
             for col in df.columns:
                 df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-            # 桌號轉回整數供亮燈
+            # 提取桌號中的數字供地圖定位
             df['桌號_int'] = pd.to_numeric(df['桌號'].str.extract('(\d+)', expand=False), errors='coerce').fillna(0).astype(int)
             return df
     except Exception as e:
@@ -62,7 +62,7 @@ def load_data():
 
 df_guest = load_data()
 
-# --- 🗺️ 3. 地圖佈局 ---
+# --- 🗺️ 3. 地圖佈局 (1-130) ---
 layout_data = [
     ["", "", "", "舞台", "", "", ""],
     ["", "", "VIP3", "VIP1", "VIP2", "", ""], 
@@ -94,9 +94,9 @@ with tab1:
     if search_q:
         q = search_q.strip()
         
-        # --- 🥚 彩蛋觸發 (最優先檢查) ---
+        # --- 🥚 彩蛋觸發區 ---
         egg_triggered = False
-        if q in ["靜好大仙", "劉來好", "馬慧斌", "郭和錦"]:
+        if q in ["靜好大仙", "劉來好", "馬慧斌", "郭和錦", "辛苦了", "大會成功", "傳承"]:
             egg_triggered = True
             if q in ["靜好大仙", "劉來好"]:
                 st.markdown('<div class="popup-container" style="background-color: #FFF9C4;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold;">她跟馬經理都在這裡<br>暖心地照看著大家</p></div>', unsafe_allow_html=True)
@@ -104,20 +104,26 @@ with tab1:
                 st.markdown('<div class="popup-container"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">👔 馬慧斌 經理</h2><p style="font-size: 24px; font-weight: bold;">他在現場喔！<br>你有看到嗎？</p></div>', unsafe_allow_html=True)
             elif q == "郭和錦":
                 st.markdown('<div class="popup-container" style="background-color: #FCE4EC;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #EC407A;">🌸 郭和錦</h2><p style="font-size: 26px; font-weight: bold;">賴經理加油！<br>我一直都在這裡陪著妳</p></div>', unsafe_allow_html=True)
+            elif q == "辛苦了":
+                st.snow()
+                st.markdown('<div class="popup-container" style="background-color: #E3F2FD;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #1565C0;">💙 致 工作人員</h2><p style="font-size: 20px; font-weight: bold;">各位工作人員辛苦了，<br>這場「千人宴」因為有你們而完美！</p></div>', unsafe_allow_html=True)
+            elif q == "大會成功":
+                st.balloons()
+                st.markdown('<div class="popup-container" style="background-color: #E8F5E9; border-color: #4CAF50;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #2E7D32;">🎉 圓滿成功</h2><p style="font-size: 20px; font-weight: bold; color: #1B5E20;">預祝千人宴大會圓滿成功，<br>萬事順意！</p></div>', unsafe_allow_html=True)
+            elif q == "傳承":
+                st.balloons()
+                st.markdown('<div class="popup-container" style="background-color: #F1F8E9;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #33691E;">🌱 傳承與希望</h2><p style="font-size: 20px; font-weight: bold;">千人宴是一場聚會，<br>更是一份文化的傳遞。</p></div>', unsafe_allow_html=True)
         
-        # --- 🔍 一般搜尋邏輯 ---
+        # --- 🔍 一般搜尋邏輯 (精確比對票號) ---
         if not egg_triggered and not df_guest.empty:
-            # 票號精確比對 (\b)，姓名模糊比對
             mask_ticket = df_guest['票號'].str.contains(rf'\b{re.escape(q)}\b', na=False, regex=True)
             mask_name = df_guest['姓名'].str.contains(q, na=False)
-            
             found = df_guest[mask_ticket | mask_name]
             
             if not found.empty:
                 row = found.iloc[0]
                 table_val = row['桌號_int']
                 st.session_state.focus_table = table_val
-                
                 t_label = f"第 {row['桌號']} 桌"
                 st.markdown(f"""
                     <div class="popup-container">
