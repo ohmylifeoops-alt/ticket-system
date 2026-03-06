@@ -51,14 +51,10 @@ def load_data():
         if response.status_code == 200:
             response.encoding = 'utf-8'
             df = pd.read_csv(StringIO(response.text))
-            
-            # 關鍵修正：解決小數點問題
-            # 將所有欄位轉為字串，並把 '.0' 替換掉，再去除空白
             for col in df.columns:
                 df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-            
-            # 桌號轉回整數供地圖按鈕比對
-            df['桌號_int'] = pd.to_numeric(df['桌號'], errors='coerce').fillna(0).astype(int)
+            # 桌號轉回整數供亮燈
+            df['桌號_int'] = pd.to_numeric(df['桌號'].str.extract('(\d+)', expand=False), errors='coerce').fillna(0).astype(int)
             return df
     except Exception as e:
         st.error(f"資料載入失敗: {e}")
@@ -98,8 +94,10 @@ with tab1:
     if search_q:
         q = search_q.strip()
         
-        # --- 🥚 彩蛋觸發 ---
+        # --- 🥚 彩蛋觸發 (最優先檢查) ---
+        egg_triggered = False
         if q in ["靜好大仙", "劉來好", "馬慧斌", "郭和錦"]:
+            egg_triggered = True
             if q in ["靜好大仙", "劉來好"]:
                 st.markdown('<div class="popup-container" style="background-color: #FFF9C4;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #F57F17;">🕯️ 靜好大仙</h2><p style="font-size: 24px; font-weight: bold;">她跟馬經理都在這裡<br>暖心地照看著大家</p></div>', unsafe_allow_html=True)
             elif q == "馬慧斌":
@@ -107,10 +105,9 @@ with tab1:
             elif q == "郭和錦":
                 st.markdown('<div class="popup-container" style="background-color: #FCE4EC;"><a href="./" target="_self" class="close-x">×</a><h2 style="color: #EC407A;">🌸 郭和錦</h2><p style="font-size: 26px; font-weight: bold;">賴經理加油！<br>我一直都在這裡陪著妳</p></div>', unsafe_allow_html=True)
         
-        # --- 🔍 精確搜尋邏輯 ---
-        elif not df_guest.empty:
-            # 1. 票號比對：使用正則表達式邊界 \b，確保搜 296 不會中 1296
-            # 2. 姓名比對：模糊包含
+        # --- 🔍 一般搜尋邏輯 ---
+        if not egg_triggered and not df_guest.empty:
+            # 票號精確比對 (\b)，姓名模糊比對
             mask_ticket = df_guest['票號'].str.contains(rf'\b{re.escape(q)}\b', na=False, regex=True)
             mask_name = df_guest['姓名'].str.contains(q, na=False)
             
@@ -121,10 +118,7 @@ with tab1:
                 table_val = row['桌號_int']
                 st.session_state.focus_table = table_val
                 
-                # 顯示文字處理
-                t_label = f"第 {table_val} 桌"
-                if "VIP" in row['桌號']: t_label = f"{row['桌號']} 區"
-
+                t_label = f"第 {row['桌號']} 桌"
                 st.markdown(f"""
                     <div class="popup-container">
                         <a href="./" target="_self" class="close-x">×</a>
@@ -135,34 +129,28 @@ with tab1:
                     </div>
                 """, unsafe_allow_html=True)
             else:
-                st.warning(f"查無「{q}」的資料。")
+                st.warning(f"查無資料。")
 
     # --- 🗺️ 地圖渲染 ---
     for r_idx, row in enumerate(layout_data):
         if not any(row):
             st.markdown('<div class="spacer-row"></div>', unsafe_allow_html=True)
             continue
-            
         row_content = "".join(row)
         if any(k in row_content for k in ["舞台", "入口", "電視牆"]):
             color = "#FF4B4B" if "舞台" in row_content else ("#333333" if "電視" in row_content else "#2E7D32")
             st.markdown(f'<div class="label-box-fixed" style="--label-color: {color};">{row_content}</div>', unsafe_allow_html=True)
             continue
-        
         cols = st.columns(len(row))
         for c_idx, val in enumerate(row):
             with cols[c_idx]:
                 if val.strip():
-                    # 錨點處理
                     clean_val = val.replace("VIP", "")
                     st.markdown(f'<div id="t_{clean_val}" class="target-spot"></div>', unsafe_allow_html=True)
-                    
-                    # 亮燈邏輯
                     is_focus = (st.session_state.focus_table and str(st.session_state.focus_table) == clean_val)
                     st.button(val, key=f"btn_{r_idx}_{c_idx}", type="primary" if is_focus else "secondary", use_container_width=True)
 
 with tab2:
-    st.info("系統維護中：報到功能連線正常。")
-
+    st.info("系統維護中。")
 with tab3:
     st.dataframe(df_guest, use_container_width=True)
